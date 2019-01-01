@@ -50,6 +50,7 @@ int MPI_File_open(MPI_Comm comm, ROMIO_CONST char *filename, int amode,
                   MPI_Info info, MPI_File * fh)
 {
     int error_code = MPI_SUCCESS, file_system, flag, tmp_amode = 0, rank;
+    int allInfoNull;            /* whether all processes's info are NULLs */
     char *tmp;
     MPI_Comm dupcomm = MPI_COMM_NULL;
     ADIOI_Fns *fsops;
@@ -64,7 +65,7 @@ int MPI_File_open(MPI_Comm comm, ROMIO_CONST char *filename, int amode,
 
     /* --BEGIN ERROR HANDLING-- */
     MPIO_CHECK_COMM(comm, myname, error_code);
-    MPIO_CHECK_INFO_ALL(info, error_code, comm);
+    MPIO_CHECK_INFO_ALL(info, error_code, comm, allInfoNull);
     /* --END ERROR HANDLING-- */
 
     error_code = MPI_Comm_test_inter(comm, &flag);

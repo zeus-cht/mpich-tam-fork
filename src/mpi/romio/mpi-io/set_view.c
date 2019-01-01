@@ -44,6 +44,7 @@ int MPI_File_set_view(MPI_File fh, MPI_Offset disp, MPI_Datatype etype,
                       MPI_Datatype filetype, ROMIO_CONST char *datarep, MPI_Info info)
 {
     int error_code = MPI_SUCCESS;
+    int allInfoNull;            /* whether all processes's info are NULLs */
     MPI_Count filetype_size, etype_size;
     static char myname[] = "MPI_FILE_SET_VIEW";
     ADIO_Offset shared_fp, byte_off;
@@ -101,7 +102,8 @@ int MPI_File_set_view(MPI_File fh, MPI_Offset disp, MPI_Datatype etype,
         error_code = MPIO_Err_return_file(adio_fh, error_code);
         goto fn_exit;
     }
-    MPIO_CHECK_INFO_ALL(info, error_code, adio_fh->comm);
+    /* MPIO_CHECK_INFO_ALL is collective */
+    MPIO_CHECK_INFO_ALL(info, error_code, adio_fh->comm, allInfoNull);
     /* --END ERROR HANDLING-- */
 
     MPI_Type_size_x(filetype, &filetype_size);
@@ -140,7 +142,8 @@ int MPI_File_set_view(MPI_File fh, MPI_Offset disp, MPI_Datatype etype,
         disp = byte_off;
     }
 
-    ADIO_Set_view(adio_fh, disp, etype, filetype, info, &error_code);
+    /* ADIO_Set_view is collective */
+    ADIO_Set_view(adio_fh, disp, etype, filetype, info, allInfoNull, &error_code);
 
     /* --BEGIN ERROR HANDLING-- */
     if (error_code != MPI_SUCCESS) {

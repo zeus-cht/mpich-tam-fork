@@ -399,7 +399,7 @@ void ADIO_ResolveFileType(MPI_Comm comm, const char *filename, int *fstype,
 void ADIO_Get_shared_fp(ADIO_File fd, ADIO_Offset size, ADIO_Offset * shared_fp, int *error_code);
 void ADIO_Set_shared_fp(ADIO_File fd, ADIO_Offset offset, int *error_code);
 void ADIO_Set_view(ADIO_File fd, ADIO_Offset disp, MPI_Datatype etype,
-                   MPI_Datatype filetype, MPI_Info info, int *error_code);
+                   MPI_Datatype filetype, MPI_Info info, int allInfoNull, int *error_code);
 int ADIO_Feature(ADIO_File fd, int flag);
 
 /* functions to help deal with the array datatypes */

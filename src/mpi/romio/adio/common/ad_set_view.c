@@ -55,7 +55,7 @@ int check_type(ADIOI_Flatlist_node * flat_type,
  * be open. set_view doesn't modify anything related to the open files.
  */
 void ADIO_Set_view(ADIO_File fd, ADIO_Offset disp, MPI_Datatype etype,
-                   MPI_Datatype filetype, MPI_Info info, int *error_code)
+                   MPI_Datatype filetype, MPI_Info info, int allInfoNull, int *error_code)
 {
     static char myname[] = "ADIO_Set_view";
     int combiner, i, j, k, err, etype_is_contig, filetype_is_contig;
@@ -72,8 +72,9 @@ void ADIO_Set_view(ADIO_File fd, ADIO_Offset disp, MPI_Datatype etype,
     if (combiner != MPI_COMBINER_NAMED)
         MPI_Type_free(&(fd->filetype));
 
-    /* set new info */
-    ADIO_SetInfo(fd, info, &err);
+    /* set new info, if some of processes's info is not NULL */
+    if (!allInfoNull)
+        ADIO_SetInfo(fd, info, &err);
 
     /* set new etypes and filetypes */
 

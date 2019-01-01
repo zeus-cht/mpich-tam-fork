@@ -38,6 +38,7 @@ Input Parameters:
 int MPI_File_set_info(MPI_File fh, MPI_Info info)
 {
     int error_code;
+    int allInfoNull;            /* whether all processes's info are NULLs */
     static char myname[] = "MPI_FILE_SET_INFO";
     ADIO_File adio_fh;
 
@@ -47,11 +48,12 @@ int MPI_File_set_info(MPI_File fh, MPI_Info info)
 
     /* --BEGIN ERROR HANDLING-- */
     MPIO_CHECK_FILE_HANDLE(adio_fh, myname, error_code);
-    MPIO_CHECK_INFO_ALL(info, error_code, fh->comm);
+    MPIO_CHECK_INFO_ALL(info, error_code, fh->comm, allInfoNull);
     /* --END ERROR HANDLING-- */
 
-    /* set new info */
-    ADIO_SetInfo(adio_fh, info, &error_code);
+    /* set new info, only if info is not NULL in some processes */
+    if (!allInfoNull)
+        ADIO_SetInfo(adio_fh, info, &error_code);
 
   fn_exit:
     /* --BEGIN ERROR HANDLING-- */

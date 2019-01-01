@@ -166,20 +166,29 @@
 /* Check MPI_Info object by calling MPI_Info_dup, if the info object is valid
 then the dup operation will succeed */
 /* a collective check for error makes this macro collective */
-#define MPIO_CHECK_INFO_ALL(info, error_code, comm) {                   \
+#define MPIO_CHECK_INFO_ALL(info, error_code, comm, allInfoNULL) {      \
         MPI_Info dupinfo;                                               \
         int tmp_err = MPI_SUCCESS;                                      \
         if (info == MPI_INFO_NULL) {                                    \
             dupinfo = MPI_INFO_NULL;                                    \
-            error_code = MPI_SUCCESS;                                   \
+            error_code = -1; /* indicate NULL info */                   \
         } else {                                                        \
             error_code = MPI_Info_dup(info, &dupinfo);                  \
         }                                                               \
         MPI_Allreduce(&error_code, &tmp_err, 1, MPI_INT, MPI_MAX, comm); \
-        if (tmp_err != MPI_SUCCESS) {                                   \
+        if (tmp_err > MPI_SUCCESS) { /* all MPI error codes > 0 */      \
             error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE, \
                                               myname, __LINE__, MPI_ERR_OTHER, "**info", 0); \
+            allInfoNull = 0;                                            \
             goto fn_fail;                                               \
+        }                                                               \
+        else if (tmp_err == -1) { /* all info are NULL */               \
+            allInfoNull = 1;                                            \
+            error_code = MPI_SUCCESS;                                   \
+        }                                                               \
+        else { /* tmp_err == 0 (some of info are not NULL) */           \
+            allInfoNull = 0;                                            \
+            error_code = MPI_SUCCESS;                                   \
         }                                                               \
         if (dupinfo != MPI_INFO_NULL) {                                 \
             MPI_Info_free(&dupinfo);                                    \
