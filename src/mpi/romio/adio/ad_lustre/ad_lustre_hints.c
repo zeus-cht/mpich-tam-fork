@@ -17,12 +17,10 @@
 
 void ADIOI_LUSTRE_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
 {
-    char *value;
     int flag;
     ADIO_Offset stripe_val[3], str_factor = -1, str_unit = 0, start_iodev = -1;
     int myrank;
     static char myname[] = "ADIOI_LUSTRE_SETINFO";
-
 
 #ifdef HAVE_LUSTRE_LOCKAHEAD
     /* Set lock ahead default hints */
@@ -32,7 +30,6 @@ void ADIOI_LUSTRE_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
     fd->hints->fs_hints.lustre.lock_ahead_flags = 0;
 #endif
 
-    value = (char *) ADIOI_Malloc((MPI_MAX_INFO_VAL + 1) * sizeof(char));
     if ((fd->info) == MPI_INFO_NULL) {
         /* This must be part of the open call. can set striping parameters
          * if necessary. */
@@ -52,6 +49,9 @@ void ADIOI_LUSTRE_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
         /* has user specified striping or server buffering parameters
          * and do they have the same value on all processes? */
         if (users_info != MPI_INFO_NULL) {
+            char *value;
+            value = (char *) ADIOI_Malloc((MPI_MAX_INFO_VAL + 1) * sizeof(char));
+
             /* striping information */
             ADIOI_Info_get(users_info, "striping_unit", MPI_MAX_INFO_VAL, value, &flag);
             if (flag) {
@@ -122,9 +122,8 @@ void ADIOI_LUSTRE_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
                                                  myname, error_code);
             }
 #endif
+            ADIOI_Free(value);
         }
-
-
 
         /* set striping information with ioctl */
         MPI_Comm_rank(fd->comm, &myrank);
@@ -142,7 +141,6 @@ void ADIOI_LUSTRE_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
             || stripe_val[1] != str_unit || stripe_val[2] != start_iodev) {
             MPIO_ERR_CREATE_CODE_INFO_NOT_SAME("ADIOI_LUSTRE_SetInfo",
                                                "str_factor or str_unit or start_iodev", error_code);
-            ADIOI_Free(value);
             return;
         }
     }
@@ -168,6 +166,7 @@ void ADIOI_LUSTRE_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
                                              error_code);
 
     }
+
     /* set the values for collective I/O and data sieving parameters */
     ADIOI_GEN_SetInfo(fd, users_info, error_code);
 
@@ -180,8 +179,6 @@ void ADIOI_LUSTRE_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
         fd->direct_read = 1;
     if (ADIOI_Direct_write)
         fd->direct_write = 1;
-
-    ADIOI_Free(value);
 
     *error_code = MPI_SUCCESS;
 }
