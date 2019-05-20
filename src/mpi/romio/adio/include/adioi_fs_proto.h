@@ -56,4 +56,10 @@ extern struct ADIOI_Fns_struct ADIO_IME_operations;
 /* prototypes are in adio/ad_daos/ad_daos.h */
 extern struct ADIOI_Fns_struct ADIO_DAOS_operations;
 #endif
+
+#ifdef ROMIO_MOCHIO
+/* prototypes are in adio/ad_mochio/ad_mochio.h */
+extern struct ADIOI_Fns_struct ADIO_MOCHIO_operations;
+#endif
+
 #endif /* ADIOI_FS_PROTO_H_INCLUDED */
