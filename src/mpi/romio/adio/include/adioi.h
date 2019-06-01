@@ -49,6 +49,7 @@ struct ADIOI_Hints_struct {
     int deferred_open;
     int start_iodevice;
     int min_fdomain_size;
+    int pipeline_two_phase;
     char *cb_config_list;
     int *ranklist;
     union {

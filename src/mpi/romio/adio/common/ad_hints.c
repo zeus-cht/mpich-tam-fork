@@ -120,6 +120,12 @@ void ADIOI_GEN_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
         ADIOI_Info_set(info, "romio_ds_write", "automatic");
         fd->hints->ds_write = ADIOI_HINT_AUTO;
 
+        /* default is not to overlap communication phase with I/O phase of
+         * collective I/O. Pipeline the two phases enables the overlap.
+         */
+        ADIOI_Info_set(fd->info, "romio_pipeline_two_phase", "disable");
+        fd->hints->pipeline_two_phase = ADIOI_HINT_DISABLE;
+
         /* still to do: tune this a bit for a variety of file systems. there's
          * no good default value so just leave it unset */
         fd->hints->min_fdomain_size = 0;
@@ -246,6 +252,10 @@ void ADIOI_GEN_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
          * process hints for it. */
         ADIOI_Info_check_and_install_int(fd, users_info, "striping_unit",
                                          &(fd->hints->striping_unit), myname, error_code);
+
+        /* whether to pipeline the two phases of collective I/O */
+        ADIOI_Info_check_and_install_enabled(fd, users_info, "romio_pipeline_two_phase",
+                                             &(fd->hints->pipeline_two_phase), myname, error_code);
     }
 
     /* Begin hint post-processig: some hints take precidence over or conflict

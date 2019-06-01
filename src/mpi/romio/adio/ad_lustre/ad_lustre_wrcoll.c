@@ -73,7 +73,7 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
                                          ADIO_Offset * send_buf_idx,
                                          int *curr_to_proc,
                                          int *done_to_proc, int *hole,
-                                         int iter, MPI_Aint buftype_extent,
+                                         int iter, int isLastIter, MPI_Aint buftype_extent,
                                          ADIO_Offset * buf_idx,
                                          ADIO_Offset ** srt_off, int **srt_len, int *srt_num,
                                          int *error_code);
@@ -414,6 +414,12 @@ static void ADIOI_LUSTRE_Exch_and_write(ADIO_File fd, const void *buf,
     ADIO_Offset block_offset;
     int block_len;
 
+    /* pipelined two-phase uses double buffers */
+    char *write_buf_db[2];
+    int nbuf, hole_db[2], real_size_db[2], srt_num_db[2];
+    int *recv_count_db[2], *srt_len_db[2] = { NULL, NULL };
+    ADIO_Offset off_db[2], *srt_off_db[2] = { NULL, NULL };
+
     *error_code = MPI_SUCCESS;  /* changed below if error */
     /* only I/O errors are currently reported */
 
@@ -456,8 +462,15 @@ static void ADIOI_LUSTRE_Exch_and_write(ADIO_File fd, const void *buf,
     max_ntimes = (max_end_loc - min_st_loc + 1) / step_size
         + (((max_end_loc - min_st_loc + 1) % step_size) ? 1 : 0);
 /*     max_ntimes = (int)((max_end_loc - min_st_loc) / step_size + 1); */
-    if (ntimes)
-        write_buf = (char *) ADIOI_Malloc(stripe_size);
+
+    if (ntimes) {
+        if (fd->hints->pipeline_two_phase == ADIOI_HINT_ENABLE) {
+            /* pipelined 2-phase: allocate double buffers for write data */
+            write_buf_db[0] = (char *) ADIOI_Malloc(stripe_size * 2);
+            write_buf_db[1] = write_buf_db[0] + stripe_size;
+        } else
+            write_buf = (char *) ADIOI_Malloc(stripe_size);
+    }
 
     /* calculate the start offset for each iteration */
     off_list = (ADIO_Offset *) ADIOI_Malloc((max_ntimes + 2 * nprocs) * sizeof(ADIO_Offset));
@@ -474,15 +487,27 @@ static void ADIOI_LUSTRE_Exch_and_write(ADIO_File fd, const void *buf,
         }
     }
 
-    recv_curr_offlen_ptr = (int *) ADIOI_Calloc(nprocs * 9, sizeof(int));
+    if (fd->hints->pipeline_two_phase == ADIOI_HINT_ENABLE)
+        nbuf = 10;
+    else
+        nbuf = 9;
+
+    recv_curr_offlen_ptr = (int *) ADIOI_Calloc(nprocs * nbuf, sizeof(int));
     send_curr_offlen_ptr = recv_curr_offlen_ptr + nprocs;
     /* their use is explained below. calloc initializes to 0. */
 
-    recv_count = send_curr_offlen_ptr + nprocs;
-    /* to store count of how many off-len pairs per proc are satisfied
-     * in an iteration. */
+    if (fd->hints->pipeline_two_phase == ADIOI_HINT_ENABLE) {
+        /* pipelined 2-phase: allocate double buffers for write metadata */
+        recv_count_db[0] = send_curr_offlen_ptr + nprocs;
+        recv_count_db[1] = recv_count_db[0] + nprocs;
+        send_size = recv_count_db[1] + nprocs;
+    } else {
+        recv_count = send_curr_offlen_ptr + nprocs;
+        /* to store count of how many off-len pairs per proc are satisfied
+         * in an iteration. */
+        send_size = recv_count + nprocs;
+    }
 
-    send_size = recv_count + nprocs;
     /* total size of data to be sent to each proc. in an iteration.
      * Of size nprocs so that I can use MPI_Alltoall later. */
 
@@ -531,7 +556,21 @@ static void ADIOI_LUSTRE_Exch_and_write(ADIO_File fd, const void *buf,
     /* check the hint for data sieving */
     data_sieving = fd->hints->fs_hints.lustre.ds_in_coll;
 
+    /* pipelined 2-phase I/O adds an additional iteration */
+    if (fd->hints->pipeline_two_phase == ADIOI_HINT_ENABLE)
+        max_ntimes++;
+
     for (m = 0; m < max_ntimes; m++) {
+        int prev, cur = m % 2;
+
+        if (fd->hints->pipeline_two_phase == ADIOI_HINT_ENABLE) {
+            /* set pointers to metadata to be updated in current iteration */
+            srt_len = srt_len_db[cur];
+            srt_off = srt_off_db[cur];
+            write_buf = write_buf_db[cur];
+            recv_count = recv_count_db[cur];
+        }
+
         /* go through all others_req and my_req to check which will be received
          * and sent in this iteration.
          */
@@ -583,8 +622,6 @@ static void ADIOI_LUSTRE_Exch_and_write(ADIO_File fd, const void *buf,
                     req_len = others_req[i].lens[j];
                     if (req_off < iter_st_off + max_size) {
                         recv_count[i]++;
-                        ADIOI_Assert((((ADIO_Offset) (uintptr_t) write_buf) + req_off - off) ==
-                                     (ADIO_Offset) (uintptr_t) (write_buf + req_off - off));
                         others_req[i].mem_ptrs[j] = req_off - off;
                         recv_size[i] += req_len;
                     } else {
@@ -594,6 +631,8 @@ static void ADIOI_LUSTRE_Exch_and_write(ADIO_File fd, const void *buf,
                 recv_curr_offlen_ptr[i] = j;
             }
         }
+        iter_st_off += max_size;
+
         /* use variable "hole" to pass data_sieving flag into W_Exchange_data */
         hole = data_sieving;
         ADIOI_LUSTRE_W_Exchange_data(fd, buf, write_buf, flat_buf, offset_list,
@@ -603,12 +642,45 @@ static void ADIOI_LUSTRE_Exch_and_write(ADIO_File fd, const void *buf,
                                      buftype_is_contig, contig_access_count,
                                      striping_info, others_req, send_buf_idx,
                                      curr_to_proc, done_to_proc, &hole, m,
+                                     (m == max_ntimes - 1),
                                      buftype_extent, this_buf_idx,
                                      &srt_off, &srt_len, &srt_num, error_code);
 
         if (*error_code != MPI_SUCCESS)
             goto over;
 
+        if (fd->hints->pipeline_two_phase == ADIOI_HINT_ENABLE) {
+            /* save metadata updated in current iteration, so they can be used
+             * in next iteration
+             */
+            off_db[cur] = off;
+            hole_db[cur] = hole;
+            srt_off_db[cur] = srt_off;
+            srt_len_db[cur] = srt_len;
+            srt_num_db[cur] = srt_num;
+            real_size_db[cur] = real_size;
+
+            /* skip the write phase of first iteration */
+            if (m == 0)
+                continue;
+
+            /* index of metadata double buffers updated in the previous iteration */
+            prev = cur ^ 1;
+
+            /* set pointers to metadata updated in the previous iteration, to
+             * be used below in the write phase.
+             */
+            off = off_db[prev];
+            hole = hole_db[prev];
+            srt_len = srt_len_db[prev];
+            srt_num = srt_num_db[prev];
+            srt_off = srt_off_db[prev];
+            real_size = real_size_db[prev];
+            write_buf = write_buf_db[prev];
+            recv_count = recv_count_db[prev];
+        }
+
+        /* check whether this process has data to write in this iteration */
         flag = 0;
         for (i = 0; i < nprocs; i++)
             if (recv_count[i]) {
@@ -668,15 +740,26 @@ static void ADIOI_LUSTRE_Exch_and_write(ADIO_File fd, const void *buf,
             if (*error_code != MPI_SUCCESS)
                 goto over;
         }
-        iter_st_off += max_size;
     }
   over:
-    if (srt_off)
-        ADIOI_Free(srt_off);
-    if (srt_len)
-        ADIOI_Free(srt_len);
-    if (ntimes)
-        ADIOI_Free(write_buf);
+    if (fd->hints->pipeline_two_phase == ADIOI_HINT_ENABLE) {
+        /* free space allocated for double buffering */
+        for (i = 0; i < 2; i++) {
+            if (srt_off_db[i] != NULL)
+                ADIOI_Free(srt_off_db[i]);
+            if (srt_len_db[i] != NULL)
+                ADIOI_Free(srt_len_db[i]);
+        }
+        if (ntimes)
+            ADIOI_Free(write_buf_db[0]);
+    } else {
+        if (srt_off)
+            ADIOI_Free(srt_off);
+        if (srt_len)
+            ADIOI_Free(srt_len);
+        if (ntimes)
+            ADIOI_Free(write_buf);
+    }
     ADIOI_Free(recv_curr_offlen_ptr);
     ADIOI_Free(off_list);
 }
@@ -700,6 +783,7 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
                                          ADIO_Offset * send_buf_idx,
                                          int *curr_to_proc, int *done_to_proc,
                                          int *hole, int iter,
+                                         int isLastIter,
                                          MPI_Aint buftype_extent,
                                          ADIO_Offset * buf_idx,
                                          ADIO_Offset ** srt_off, int **srt_len, int *srt_num,
@@ -707,7 +791,7 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
 {
     int i, j, k, nprocs_recv, nprocs_send, err;
     char **send_buf = NULL;
-    MPI_Request *requests, *send_req;
+    MPI_Request *requests = NULL, *send_req;
     MPI_Datatype *recv_types, self_recv_type = MPI_DATATYPE_NULL;
     MPI_Status *statuses, status;
     int sum_recv, num_rtypes, nreqs;
@@ -715,6 +799,56 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
     static size_t malloc_srt_num = 0;
     size_t send_total_size;
     static char myname[] = "ADIOI_W_EXCHANGE_DATA";
+
+    /* pipelined 2-phase: metadata of double buffering will be used in the next
+     * iter, thus are declared static */
+    int cur, prev;
+    static size_t malloc_srt_num_db[2] = { 0, 0 };
+    static int nreqs_db[2] = { 0, 0 };
+    static MPI_Request *requests_db[2] = { NULL, NULL };
+    static char **send_buf_db[2] = { NULL, NULL };
+
+    if (fd->hints->pipeline_two_phase == ADIOI_HINT_ENABLE) {
+        /* cur is the index to double buffers used for current iteration */
+        cur = iter % 2;
+
+        if (iter > 0) {
+            /* wait for the exchange of previous iteration to complete */
+            prev = cur ^ 1;
+            nreqs = nreqs_db[prev];
+            requests = requests_db[prev];
+#ifdef MPI_STATUSES_IGNORE
+            statuses = MPI_STATUSES_IGNORE;
+#else
+            statuses = (MPI_Status *) ADIOI_Malloc((nreqs + 1) * sizeof(MPI_Status));
+#endif
+            MPI_Waitall(nreqs, requests, statuses);
+#ifndef MPI_STATUSES_IGNORE
+            ADIOI_Free(statuses);
+#endif
+        }
+
+        /* last iteration frees up space allocated for double buffers */
+        if (isLastIter) {
+            for (i = 0; i < 2; i++) {
+                nreqs_db[i] = 0;
+                if (requests_db[i] != NULL)
+                    ADIOI_Free(requests_db[i]);
+                requests_db[i] = NULL;
+                if (send_buf_db[i] != NULL) {
+                    ADIOI_Free(send_buf_db[i][0]);
+                    ADIOI_Free(send_buf_db[i]);
+                }
+                send_buf_db[i] = NULL;
+            }
+            return;
+        }
+
+        /* set pointers to metadata to be used in current iteration */
+        send_buf = send_buf_db[cur];
+        requests = requests_db[cur];
+        malloc_srt_num = malloc_srt_num_db[cur];
+    }
 
     /* create derived datatypes for recv */
     *srt_num = 0;
@@ -808,13 +942,13 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
     if (fd->atomicity) {
         /* nreqs is the number of Isend and Irecv to be posted */
         nreqs = (send_size[myrank]) ? (nprocs_send - 1) : nprocs_send;
-        requests = (MPI_Request *) ADIOI_Malloc((nreqs + 1) * sizeof(MPI_Request));
+        requests = (MPI_Request *) ADIOI_Realloc(requests, (nreqs + 1) * sizeof(MPI_Request));
         send_req = requests;
     } else {
         nreqs = nprocs_send + nprocs_recv;
         if (send_size[myrank])  /* No send to and recv from self */
             nreqs -= 2;
-        requests = (MPI_Request *) ADIOI_Malloc((nreqs + 1) * sizeof(MPI_Request));
+        requests = (MPI_Request *) ADIOI_Realloc(requests, (nreqs + 1) * sizeof(MPI_Request));
         /* +1 to avoid a 0-size malloc */
 
         /* post receives */
@@ -849,8 +983,12 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
             }
     } else if (nprocs_send) {
         /* buftype is not contig */
-        send_buf = (char **) ADIOI_Malloc(nprocs * sizeof(char *));
-        send_buf[0] = (char *) ADIOI_Malloc(send_total_size);
+        if (send_buf == NULL) {
+            send_buf = (char **) ADIOI_Malloc(nprocs * sizeof(char *));
+            send_buf[0] = (char *) ADIOI_Malloc(send_total_size);
+        } else {
+            send_buf[0] = (char *) ADIOI_Realloc(send_buf[0], send_total_size);
+        }
         for (i = 1; i < nprocs; i++)
             send_buf[i] = send_buf[i - 1] + send_size[i - 1];
 
@@ -881,6 +1019,17 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
     if (self_recv_type != MPI_DATATYPE_NULL)
         MPI_Type_free(&self_recv_type);
 
+    if (fd->hints->pipeline_two_phase == ADIOI_HINT_ENABLE) {
+        /* Save updated metadata to be used in next iteration */
+        nreqs_db[cur] = nreqs;
+        send_buf_db[cur] = send_buf;
+        requests_db[cur] = requests;
+        malloc_srt_num_db[cur] = malloc_srt_num;
+        return;
+        /* For pipelined 2-phase, MPI_Waitall for the previous iteration is
+         * moved to the beginning of this function.
+         */
+    }
 #ifdef MPI_STATUSES_IGNORE
     statuses = MPI_STATUSES_IGNORE;
 #else
