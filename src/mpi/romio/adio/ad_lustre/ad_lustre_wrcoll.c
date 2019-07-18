@@ -757,8 +757,6 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
             nprocs_send++;
     }
 
-#define DATA_SIEVING_THRESHOLD 32768
-
     /* determine whether checking holes is necessary */
     check_hole = 1;
     if (*srt_num == 0) {
@@ -766,7 +764,7 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
         check_hole = 0;
         hole = 0;
     } else if (fd->hints->ds_write == ADIOI_HINT_AUTO) {
-        if (*srt_num > DATA_SIEVING_THRESHOLD) {
+        if (*srt_num > fd->hints->ds_wr_lb) {
             /* Number of offset-length pairs is too large, making merge sort
              * expensive. Skip the sorting in hole checking and proceed with
              * read-modify-write.
