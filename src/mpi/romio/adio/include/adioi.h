@@ -43,6 +43,7 @@ struct ADIOI_Hints_struct {
     int cb_alltoall;
     int ds_read;
     int ds_write;
+    int ds_wr_lb;
     int no_indep_rw;
     int ind_rd_buffer_size;
     int ind_wr_buffer_size;
@@ -236,7 +237,13 @@ struct ADIOI_Fns_struct {
 #define ADIOI_IND_WR_BUFFER_SIZE_DFLT     "524288"
     /* use one process per processor name by default */
 #define ADIOI_CB_CONFIG_LIST_DFLT "*:1"
-
+    /* lower bound of number of noncontiguous offset-length pairs to force data
+     * sieving write. If the number of offset-length pairs is more than hint
+     * romio_cb_wr_lb, then checking holes in the file domains is skipped.
+     * Checking holes can be expensive, as it requires to merge-sort all the
+     * offset-length pairs.
+     */
+#define ADIOI_DS_WR_LB_DFLT "65536"
 
 /* some of the ADIO functions are macro-replaced */
 
