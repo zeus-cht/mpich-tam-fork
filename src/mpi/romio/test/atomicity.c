@@ -74,7 +74,13 @@ int main(int argc, char **argv)
 /* initialize file to all zeros */
     if (!mynod) {
         /* ignore error: file may or may not exist */
-        MPI_File_delete(filename, MPI_INFO_NULL);
+        err = MPI_File_delete(filename, MPI_INFO_NULL);
+        if (err != MPI_SUCCESS) {
+            int errorclass;
+            MPI_Error_class(err, &errorclass);
+            if (errorclass != MPI_ERR_NO_SUCH_FILE)     /* ignore this error class */
+                MPI_CHECK(err);
+        }
         MPI_CHECK(MPI_File_open(MPI_COMM_SELF, filename,
                                 MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh));
         for (i = 0; i < BUFSIZE; i++)
@@ -229,5 +235,5 @@ int main(int argc, char **argv)
     free(filename);
 
     MPI_Finalize();
-    return 0;
+    return (toterrs > 0);
 }
