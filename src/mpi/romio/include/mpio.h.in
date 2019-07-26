@@ -94,7 +94,7 @@ typedef int MPI_Fint;
 
 #define MPI_DISPLACEMENT_CURRENT   -54278278
 
-#ifndef MPICH
+#if !defined(MPI_FILE_NULL) && !defined(HAVE_MPI_FILE_NULL)
 /* FIXME: Make sure that we get a consistent definition of MPI_FILE_NULL
 	in MPICH */
 /* MPICH defines null object handles differently */
@@ -126,6 +126,10 @@ typedef int MPI_Fint;
 #  define MPI_DISTRIBUTE_DFLT_DARG -49767
 #endif
 
+
+#ifndef ROMIO_INSIDE_MPICH
+#  define MPICH_ATTR_POINTER_WITH_TYPE_TAG(buffer_idx, type_idx)
+#endif
 
 /* MPI-IO function prototypes */
 
@@ -247,12 +251,9 @@ int MPI_File_set_atomicity(MPI_File fh, int flag) ROMIO_API_PUBLIC;
 int MPI_File_get_atomicity(MPI_File fh, int *flag) ROMIO_API_PUBLIC;
 int MPI_File_sync(MPI_File fh) ROMIO_API_PUBLIC;
 
-/* Section 4.13.3 */
-#ifndef MPICH
-/* MPICH provides these definitions */
+/* MPI 3.1 Section 8.3.3 */
 int MPI_File_set_errhandler(MPI_File file, MPI_Errhandler errhandler) ROMIO_API_PUBLIC;
 int MPI_File_get_errhandler(MPI_File file, MPI_Errhandler *errhandler) ROMIO_API_PUBLIC;
-#endif
 
 /* For MPI 3.1 */
 int MPI_File_iread_at_all(MPI_File fh, MPI_Offset offset, void *buf, int count,

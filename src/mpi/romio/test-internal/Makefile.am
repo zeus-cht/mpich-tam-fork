@@ -13,7 +13,7 @@ CC = $(TEST_CC)
 
 # because := is not universally avalible, we have to play games to use the
 # user-specified LDFLAGS and OUR_LIBS env. variables (if set)
-OUR_LIBS = $(TEST_LIBNAME) $(MPI_LIB) $(ROMIO_LIBLIST) $(mpl_lib)
+OUR_LIBS = $(TEST_LIBNAME) $(MPI_LIB) $(ROMIO_LIBLIST)
 
 LDADD = $(OUR_LIBS)
 

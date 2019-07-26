@@ -100,9 +100,12 @@ endif !BUILD_PROFILING_LIB
 else !BUILD_ROMIO_EMBEDDED
 lib_LTLIBRARIES = libromio.la
 libromio_la_SOURCES = $(romio_mpi_sources) $(romio_other_sources) $(glue_sources)
+libromio_la_LIBADD = @mpl_lib@
 if BUILD_PROFILING_LIB
+noinst_LTLIBRARIES = libpromio.la
 libpromio_la_SOURCES = $(romio_mpi_sources)
 libpromio_la_CPPFLAGS = $(AM_CPPFLAGS) -DMPIO_BUILD_PROFILING
+libromio_la_LIBADD += libpromio.la
 endif BUILD_PROFILING_LIB
 
 endif

@@ -89,16 +89,74 @@ DEBUG=no
 MIPS=0
 BITS=0
 
+# if ROMIO is being built embedded in MPICH, FROM_MPICH has been set to yes by MPICH configure
 AC_ARG_VAR([FROM_MPICH],[set to "yes" if building ROMIO inside of MPICH])
 FROM_MPICH=${FROM_MPICH:-no}
 
+# if ROMIO is being built embedded in LAM MPI, FROM_LAM has been set to yes by LAM/MPI configure
+# Note LAM/MPI has officially retired in 2015.
 AC_ARG_VAR([FROM_LAM],[set to "yes" if building ROMIO inside of LAM])
 FROM_LAM=${FROM_LAM:-no}
 if test "$FROM_LAM" = 1 ; then FROM_LAM=yes ; fi
 
+# if ROMIO is being built embedded in OpenMPI, FROM_OMPI has been set to yes by OpenMPI configure
 AC_ARG_VAR([FROM_OMPI],[set to "yes" if building ROMIO inside of Open MPI])
 FROM_OMPI=${FROM_OMPI:-no}
 if test "$FROM_OMPI" = 1 ; then FROM_OMPI=yes ; fi
+
+# If we are building within a known MPI implementation, we must avoid the
+# tests about an existing implementation
+# build_ROMIO_EMBEDDED indicates whether we are building within a known or unknown MPI
+build_ROMIO_EMBEDDED=yes
+if test "$FROM_MPICH" != no -o "$FROM_LAM" != no -o "$FROM_OMPI" != no ; then
+   WITHIN_KNOWN_MPI_IMPL=yes
+else
+   WITHIN_KNOWN_MPI_IMPL=no
+   dnl check if C compiler is already an MPI C compiler
+   AC_CHECK_FUNC([MPI_Comm_rank])
+   # AC_MSG_ERROR([CC=$CC ac_cv_func_MPI_Comm_rank=$ac_cv_func_MPI_Comm_rank])
+   if test "x$ac_cv_func_MPI_Comm_rank" = xyes ; then
+      build_ROMIO_EMBEDDED=no
+   fi
+fi
+
+AM_CONDITIONAL([BUILD_ROMIO_EMBEDDED],[test "$build_ROMIO_EMBEDDED" = "yes" ])
+
+if test "x$build_ROMIO_EMBEDDED" = xno; then
+   dnl Check if MPI C compiler is MPICH based, e.g. Cray MPI
+   saved_CFLAGS=$CFLAGS
+   saved_CPPFLAGS=$CPPFLAGS
+   AC_MSG_CHECKING([whether MPI C compiler is MPICH based])
+   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <mpi.h>
+#ifndef MPICH_NAME
+#error MPICH_NAME is not defined
+#endif
+   ]])], [MPI_IMPL=mpich])
+   if test "x$MPI_IMPL" = xmpich ; then
+      AC_MSG_RESULT([yes])
+   else
+      AC_MSG_RESULT([no])
+   fi
+   AC_MSG_CHECKING([whether MPI C compiler is OpenMPI based])
+   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <mpi.h>
+#ifndef OMPI_MAJOR_VERSION
+#error OMPI_MAJOR_VERSION is not defined
+#endif
+   ]])], [MPI_IMPL=open_mpi])
+   if test "x$MPI_IMPL" = xopen_mpi ; then
+      AC_MSG_RESULT([yes])
+   else
+      AC_MSG_RESULT([no])
+   fi
+   CFLAGS=$saved_CFLAGS
+   CPPFLAGS=$saved_CPPFLAGS
+elif test "x$FROM_MPICH" = xyes ; then
+   MPI_IMPL=mpich
+elif test "x$FROM_OMPI" = xyes ; then
+   MPI_IMPL=open_mpi
+fi
 
 # MPL
 AC_ARG_VAR([MPLLIBNAME],[can be used to override the name of the MPL library (default: "mpl")])
@@ -322,20 +380,6 @@ AC_SUBST(docdir)
 if test -z "$htmldir" ; then htmldir='${prefix}/www' ; fi
 AC_SUBST(htmldir) 
 
-
-# If we are building within a known MPI implementation, we must avoid the
-# tests about an existing implementation
-if test "$FROM_MPICH" != no -o "$FROM_LAM" != no -o "$FROM_OMPI" != no ; then
-    WITHIN_KNOWN_MPI_IMPL=yes
-else
-    WITHIN_KNOWN_MPI_IMPL=no
-fi
-
-# Open MPI: Set the MPI implementation
-if test "$FROM_OMPI" = "yes" ; then
-    MPI_IMPL=open_mpi
-fi
-
 # check for valid MPI implementation
 if test -n "$MPI_IMPL" ; then
    found=no
@@ -440,13 +484,7 @@ fi
 
 AC_CHECK_TYPE(long long)
 AC_CHECK_SIZEOF(long long)
-if test "x$MPI_IMPL" = "xmpich" ; then
-	TEST_CC=mpicc
-	TEST_F77=mpifort
-else
-	TEST_CC="$CC"
-	TEST_F77="$F77"
-fi
+
 # there used to be a ton of arch-specific stuff in here.  If some random
 # platform really truly needs it, restore it, but that defeats the whole
 
@@ -690,7 +728,6 @@ else
 fi
 AC_SUBST(HAVE_WEAK_SYMBOLS)
 
-AM_CONDITIONAL([BUILD_ROMIO_EMBEDDED],[test "$WITHIN_KNOWN_MPI_IMPL" = "yes" ])
 # FIXME need to get this right for non-MPICH builds
 AM_CONDITIONAL([BUILD_MPIO_REQUEST],[false])
 # FIXME need to get this right for non-MPICH builds
@@ -708,8 +745,9 @@ fi
 # weird: we have conflated "buid ROMIO's versions of the fortran bindings" and
 # "build ROMIO"s fortran I/O tests". Of course the common situaiton is that we
 # are building as part of MPICH, which builds its own fortran bindings, but we
-# still want tests built
-AM_CONDITIONAL([BUILD_F77_BINDINGS],[test "x$NOF77" != "x1" && test "x$FROM_MPICH" != "xyes"])
+# still want tests built. OpenMPI also has its own fortran bindings.
+AM_CONDITIONAL([BUILD_F77_BINDINGS],
+               [test "x$NOF77" != x1 -a "x$MPI_IMPL" != xmpich -a "x$MPI_IMPL" != xopen_mpi])
 
 AM_CONDITIONAL([BUILD_F77_TESTS],[test "x$NOF77" != "x1"])
 
@@ -1368,26 +1406,13 @@ AC_CHECK_DECLS([pwrite])
 # because we may set CC to something that does not yet exist!
 ####################################################################
 
-if test -n "$mpi_mpich"; then
+if test "x$MPI_IMPL" = xmpich ; then
    if test -z "$arch_SX4" ; then
       MPIOF_H_INCLUDED=1
    fi
    if test "$FROM_MPICH" = no; then
-      dnl Check if MPI C compiler is MPICH based, e.g. Cray MPI
-      AC_MSG_CHECKING([whether MPI C compiler is MPICH based])
-      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <mpi.h>
-#ifdef MPICH_NAME
-#error MPICH_NAME is not defined
-#endif
-      ]])], [is_mpich_based=yes], [is_mpich_based=no])
-      AC_MSG_RESULT([$is_mpich_based])
-
-      if test "$is_mpich_based" = no; then
-         AC_DEFINE(NEEDS_MPI_TEST,1,[Define if mpi_test needed])
-         AC_DEFINE(MPICH,1,[Define if using MPICH])
-      fi
-      unset is_mpich_based
+      AC_DEFINE(NEEDS_MPI_TEST,1,[Define if mpi_test needed])
+      AC_DEFINE(MPICH,1,[Define if using MPICH])
    fi
 fi
 
@@ -1552,7 +1577,6 @@ elif test $FROM_MPICH = yes ; then
    AC_DEFINE(HAVE_DECL_MPI_COMBINER_HINDEXED_BLOCK, 1, [Define if MPI library provides HINDEXED_BLOCK datatype])
 fi
 #
-#
 # feature tests:  we can't test features if building as part of MPICH because
 # we don't yet have an implementation against which we can test
 #
@@ -1567,6 +1591,11 @@ if test $WITHIN_KNOWN_MPI_IMPL = no ; then
    AC_CHECK_FUNCS(MPI_Type_size_x MPI_Status_set_elements_x)
 fi
 #
+# when build stand alone, CC and F77 are expected to be MPI compilers
+if test "x$build_ROMIO_EMBEDDED" = xno ; then
+   TEST_CC="$CC"
+   TEST_F77="$F77"
+fi
 if test -z "$TEST_CC" ; then
    TEST_CC="$CC"
 fi
@@ -1620,10 +1649,9 @@ done
 # FIXME eliminate FILE_SYS_DIRS and EXTRA_SRC_DIRS
 EXTRA_SRC_DIRS=""
 
-mpio_glue=""
-if test "$FROM_MPICH" = yes -o "${MPI_IMPL}_mpi" = "mpich_mpi"; then
+if test "$FROM_MPICH" = yes ; then
     mpio_glue=mpich
-elif test "$FROM_OMPI" = yes -o "${MPI_IMPL}_mpi" = "open_mpi_mpi" ; then
+elif test "$FROM_OMPI" = yes ; then
     mpio_glue=openmpi
 else
     mpio_glue=default
@@ -1670,49 +1698,44 @@ PAC_C_GNU_ATTRIBUTE
 # support gcov test coverage information
 PAC_ENABLE_COVERAGE
 
-AC_CHECK_DECL([MPI_FILE_DEFINED], [], [], [[#include <mpi.h>]])
-if test "x${ac_cv_have_decl_MPI_FILE_DEFINED}" = xno ; then
-   AC_CHECK_TYPE([MPI_File],[], [], [[#include <mpi.h>]])
-   if test "x${ac_cv_type_MPI_File}" = xyes ; then
-      AC_DEFINE([MPI_FILE_DEFINED],[1],[whether MPI_File is defined])
+if test "x$FROM_MPICH" = xno -a "x$FROM_LAM" = xno -a "x$FROM_OMPI" = xno ; then
+   # Building ROMIO stand alone, not embedded in MPICH, OpenMPI, or LAM-MPI
+   AC_CHECK_DECL([MPI_FILE_DEFINED], [], [], [[#include <mpi.h>]])
+   if test "x${ac_cv_have_decl_MPI_FILE_DEFINED}" = xno ; then
+      AC_CHECK_TYPE([MPI_File],[], [], [[#include <mpi.h>]])
+      if test "x${ac_cv_type_MPI_File}" = xyes ; then
+         AC_DEFINE([MPI_FILE_DEFINED],[1],[whether MPI_File is defined])
+      fi
+   fi
+
+   AC_CHECK_DECL([HAVE_MPI_OFFSET], [], [], [[#include <mpi.h>]])
+   if test "x${ac_cv_have_decl_HAVE_MPI_OFFSET}" = xno ; then
+      AC_CHECK_TYPE([MPI_Offset],[], [], [[#include <mpi.h>]])
+      if test "x${ac_cv_type_MPI_Offset}" = xyes ; then
+         AC_DEFINE([HAVE_MPI_OFFSET],[1],[whether MPI_Offset is defined])
+      fi
+   fi
+
+   AC_CHECK_TYPE([MPI_Datarep_conversion_function],[], [], [[#include <mpi.h>]])
+   if test "x${ac_cv_type_MPI_Datarep_conversion_function}" = xyes ; then
+      AC_DEFINE([HAVE_MPI_DATAREP_FUNCTIONS],[1],[whether MPI_Datarep_conversion_function is defined])
+   fi
+
+   AC_CHECK_TYPE([MPI_Datarep_extent_function],[], [], [[#include <mpi.h>]])
+   if test "x${ac_cv_type_MPI_Datarep_extent_function}" = xyes ; then
+      AC_DEFINE([HAVE_MPI_DATAREP_EXTENT_FUNCTION],[1],[whether MPI_Datarep_extent_function is defined])
+   fi
+
+   AC_CHECK_TYPE([MPI_FILE_NULL],[], [], [[#include <mpi.h>]])
+   if test "x${ac_cv_type_MPI_FILE_NULL}" = xyes ; then
+      AC_DEFINE([HAVE_MPI_FILE_NULL],[1],[whether MPI_FILE_NULL is defined])
+   fi
+
+   AC_CHECK_TYPE([MPIX_Grequest_class],[], [], [[#include <mpi.h>]])
+   if test "x${ac_cv_type_MPIX_Grequest_class}" = xyes ; then
+      AC_DEFINE([HAVE_MPIX_GREQUEST_CLASS],[1],[whether MPIX_Grequest_class is defined])
    fi
 fi
-
-AC_CHECK_DECL([HAVE_MPI_OFFSET], [], [], [[#include <mpi.h>]])
-if test "x${ac_cv_have_decl_HAVE_MPI_OFFSET}" = xno ; then
-   AC_CHECK_TYPE([MPI_Offset],[], [], [[#include <mpi.h>]])
-   if test "x${ac_cv_type_MPI_Offset}" = xyes ; then
-      AC_DEFINE([HAVE_MPI_OFFSET],[1],[whether MPI_Offset is defined])
-   fi
-fi
-
-AC_CHECK_TYPE([MPI_Datarep_conversion_function],[], [], [[#include <mpi.h>]])
-if test "x${ac_cv_type_MPI_Datarep_conversion_function}" = xyes ; then
-   AC_DEFINE([HAVE_MPI_DATAREP_FUNCTIONS],[1],[whether MPI_Datarep_conversion_function is defined])
-fi
-
-AC_CHECK_TYPE([MPI_Datarep_extent_function],[], [], [[#include <mpi.h>]])
-if test "x${ac_cv_type_MPI_Datarep_extent_function}" = xyes ; then
-   AC_DEFINE([HAVE_MPI_DATAREP_EXTENT_FUNCTION],[1],[whether MPI_Datarep_extent_function is defined])
-fi
-
-AC_CHECK_TYPE([MPI_FILE_NULL],[], [], [[#include <mpi.h>]])
-if test "x${ac_cv_type_MPI_FILE_NULL}" = xyes ; then
-   AC_DEFINE([HAVE_MPI_FILE_NULL],[1],[whether MPI_FILE_NULL is defined])
-fi
-
-AC_CHECK_TYPE([MPIX_Grequest_class],[], [], [[#include <mpi.h>]])
-if test "x${ac_cv_type_MPIX_Grequest_class}" = xyes ; then
-   AC_DEFINE([HAVE_MPIX_GREQUEST_CLASS],[1],[whether MPIX_Grequest_class is defined])
-fi
-
-AC_MSG_NOTICE([setting CC to $CC])
-AC_MSG_NOTICE([setting F77 to $F77])
-AC_MSG_NOTICE([setting TEST_CC to $TEST_CC])
-AC_MSG_NOTICE([setting TEST_F77 to $TEST_F77])
-AC_MSG_NOTICE([setting CFLAGS to $CFLAGS])
-AC_MSG_NOTICE([setting USER_CFLAGS to $USER_CFLAGS])
-AC_MSG_NOTICE([setting USER_FFLAGS to $USER_FFLAGS])
 
 AC_SUBST(ARCH)
 AC_SUBST(FILE_SYSTEM)
@@ -1817,6 +1840,49 @@ AC_CONFIG_FILES([
     test/fperf.f
 ])
 AC_OUTPUT
+echo "------------------------------------------------------------------------------"
+echo \
+"
+   ${PACKAGE_NAME} Version ${PACKAGE_VERSION}
+
+   Features:  Build static libraries     - yes"
+if test "x${ENABLE_SHLIB}" = xyes; then
+   echo "\
+              Build shared libraries     - yes"
+else
+   echo "\
+              Build shared libraries     - no"
+fi
+if test "x${enable_f77}" = xyes; then
+   echo "\
+              Build Fortran 77 support   - yes"
+else
+   echo "\
+              Build Fortran 77 support   - no"
+fi
+if test "x${enable_f90}" = xyes; then
+   echo "\
+              Build Fortran 90 support   - yes"
+else
+   echo "\
+              Build Fortran 90 support   - no"
+fi
+echo "\
+
+   Compilers: CC           = ${CC}
+              TEST_CC      = ${TEST_CC}
+              USER_CFLAGS  = ${USER_CFLAGS}"
+if test "x${enable_f77}" = xyes; then
+   echo "\
+
+              F77          = ${F77}
+              FC           = ${FC}
+              TEST_F77     = ${TEST_F77}
+              USER_FFLAGS  = ${USER_FFLAGS}"
+fi
+echo "\
+
+------------------------------------------------------------------------------"
 
 dnl PAC_SUBDIR_CACHE_CLEANUP
 exit 0
