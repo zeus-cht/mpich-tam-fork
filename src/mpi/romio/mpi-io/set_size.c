@@ -54,12 +54,12 @@ int MPI_File_set_size(MPI_File fh, MPI_Offset size)
 
     /* --BEGIN ERROR HANDLING-- */
     MPIO_CHECK_FILE_HANDLE(adio_fh, myname, error_code);
-    MPIO_CHECK_NOT_SEQUENTIAL_MODE(adio_fh, myname, error_code);
+    MPIO_CHECK_NOT_SEQUENTIAL_MODE(fh, myname, error_code);
 
     if (size < 0) {
         error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE,
                                           myname, __LINE__, MPI_ERR_ARG, "**iobadsize", 0);
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
         goto fn_exit;
     }
     MPIO_CHECK_WRITABLE(fh, myname, error_code);
@@ -73,7 +73,7 @@ int MPI_File_set_size(MPI_File fh, MPI_Offset size)
     if (max_sz != min_sz) {
         error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE,
                                           myname, __LINE__, MPI_ERR_ARG, "**notsame", 0);
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
         goto fn_exit;
     }
     /* --END ERROR HANDLING-- */
@@ -89,7 +89,7 @@ int MPI_File_set_size(MPI_File fh, MPI_Offset size)
 
     /* --BEGIN ERROR HANDLING-- */
     if (error_code != MPI_SUCCESS)
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
     /* --END ERROR HANDLING-- */
 
 #ifdef MPI_hpux

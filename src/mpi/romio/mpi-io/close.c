@@ -61,9 +61,9 @@ int MPI_File_close(MPI_File * fh)
          * but a race condition in GPFS necessated this.  See ticket #2214 */
         MPI_Barrier((adio_fh)->comm);
         if ((adio_fh)->shared_fp_fd != ADIO_FILE_NULL) {
-            MPI_File *fh_shared = &(adio_fh->shared_fp_fd);
+            struct ADIOI_FileD *fh_shared = adio_fh->shared_fp_fd;
             ADIO_Close((adio_fh)->shared_fp_fd, &error_code);
-            MPIO_File_free(fh_shared);
+            ADIOI_Free(fh_shared);
             /* --BEGIN ERROR HANDLING-- */
             if (error_code != MPI_SUCCESS)
                 goto fn_fail;
@@ -96,7 +96,7 @@ int MPI_File_close(MPI_File * fh)
     return error_code;
   fn_fail:
     /* --BEGIN ERROR HANDLING-- */
-    error_code = MPIO_Err_return_file(adio_fh, error_code);
+    error_code = MPIO_Err_return_file(*fh, error_code);
     goto fn_exit;
     /* --END ERROR HANDLING-- */
 }

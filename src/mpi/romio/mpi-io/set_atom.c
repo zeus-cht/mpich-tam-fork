@@ -63,7 +63,7 @@ int MPI_File_set_atomicity(MPI_File fh, int flag)
     if (tmp_flag != flag) {
         error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE,
                                           myname, __LINE__, MPI_ERR_ARG, "**notsame", 0);
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
         goto fn_exit;
     }
     /* --END ERROR HANDLING-- */
@@ -81,7 +81,7 @@ int MPI_File_set_atomicity(MPI_File fh, int flag)
 
     /* --BEGIN ERROR HANDLING-- */
     if (error_code != MPI_SUCCESS)
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
     /* --END ERROR HANDLING-- */
 
     ADIOI_Free(fcntl_struct);

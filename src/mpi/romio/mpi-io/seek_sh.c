@@ -48,8 +48,8 @@ int MPI_File_seek_shared(MPI_File fh, MPI_Offset offset, int whence)
 
     /* --BEGIN ERROR HANDLING-- */
     MPIO_CHECK_FILE_HANDLE(adio_fh, myname, error_code);
-    MPIO_CHECK_NOT_SEQUENTIAL_MODE(adio_fh, myname, error_code);
-    MPIO_CHECK_FS_SUPPORTS_SHARED(adio_fh, myname, error_code);
+    MPIO_CHECK_NOT_SEQUENTIAL_MODE(fh, myname, error_code);
+    MPIO_CHECK_FS_SUPPORTS_SHARED(fh, myname, error_code);
     /* --END ERROR HANDLING-- */
 
     tmp_offset = offset;
@@ -58,7 +58,7 @@ int MPI_File_seek_shared(MPI_File fh, MPI_Offset offset, int whence)
     if (tmp_offset != offset) {
         error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE,
                                           myname, __LINE__, MPI_ERR_ARG, "**notsame", 0);
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
         goto fn_exit;
     }
     /* --END ERROR HANDLING-- */
@@ -69,7 +69,7 @@ int MPI_File_seek_shared(MPI_File fh, MPI_Offset offset, int whence)
     if (tmp_whence != whence) {
         error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE,
                                           myname, __LINE__, MPI_ERR_ARG, "**iobadwhence", 0);
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
         goto fn_exit;
     }
     /* --END ERROR HANDLING-- */
@@ -87,7 +87,7 @@ int MPI_File_seek_shared(MPI_File fh, MPI_Offset offset, int whence)
                                                       MPIR_ERR_RECOVERABLE,
                                                       myname, __LINE__,
                                                       MPI_ERR_ARG, "**iobadoffset", 0);
-                    error_code = MPIO_Err_return_file(adio_fh, error_code);
+                    error_code = MPIO_Err_return_file(fh, error_code);
                     goto fn_exit;
                 }
                 /* --END ERROR HANDLING-- */
@@ -101,7 +101,7 @@ int MPI_File_seek_shared(MPI_File fh, MPI_Offset offset, int whence)
                                                       MPIR_ERR_FATAL,
                                                       myname, __LINE__,
                                                       MPI_ERR_INTERN, "**iosharedfailed", 0);
-                    error_code = MPIO_Err_return_file(adio_fh, error_code);
+                    error_code = MPIO_Err_return_file(fh, error_code);
                     goto fn_exit;
                 }
                 /* --END ERROR HANDLING-- */
@@ -112,7 +112,7 @@ int MPI_File_seek_shared(MPI_File fh, MPI_Offset offset, int whence)
                                                       MPIR_ERR_RECOVERABLE,
                                                       myname, __LINE__,
                                                       MPI_ERR_ARG, "**ionegoffset", 0);
-                    error_code = MPIO_Err_return_file(adio_fh, error_code);
+                    error_code = MPIO_Err_return_file(fh, error_code);
                     goto fn_exit;
                 }
                 /* --END ERROR HANDLING-- */
@@ -127,7 +127,7 @@ int MPI_File_seek_shared(MPI_File fh, MPI_Offset offset, int whence)
                                                       MPIR_ERR_RECOVERABLE,
                                                       myname, __LINE__,
                                                       MPI_ERR_ARG, "**ionegoffset", 0);
-                    error_code = MPIO_Err_return_file(adio_fh, error_code);
+                    error_code = MPIO_Err_return_file(fh, error_code);
                     goto fn_exit;
                 }
                 /* --END ERROR HANDLING-- */
@@ -138,7 +138,7 @@ int MPI_File_seek_shared(MPI_File fh, MPI_Offset offset, int whence)
                                                   MPIR_ERR_RECOVERABLE,
                                                   myname, __LINE__, MPI_ERR_ARG,
                                                   "**iobadwhence", 0);
-                error_code = MPIO_Err_return_file(adio_fh, error_code);
+                error_code = MPIO_Err_return_file(fh, error_code);
                 goto fn_exit;
                 /* --END ERROR HANDLING-- */
         }
@@ -150,7 +150,7 @@ int MPI_File_seek_shared(MPI_File fh, MPI_Offset offset, int whence)
                                               MPIR_ERR_FATAL,
                                               myname, __LINE__,
                                               MPI_ERR_INTERN, "**iosharedfailed", 0);
-            error_code = MPIO_Err_return_file(adio_fh, error_code);
+            error_code = MPIO_Err_return_file(fh, error_code);
             goto fn_exit;
         }
         /* --END ERROR HANDLING-- */

@@ -48,8 +48,8 @@ int MPI_File_get_position_shared(MPI_File fh, MPI_Offset * offset)
 
     /* --BEGIN ERROR HANDLING-- */
     MPIO_CHECK_FILE_HANDLE(adio_fh, myname, error_code);
-    MPIO_CHECK_NOT_SEQUENTIAL_MODE(adio_fh, myname, error_code);
-    MPIO_CHECK_FS_SUPPORTS_SHARED(adio_fh, myname, error_code);
+    MPIO_CHECK_NOT_SEQUENTIAL_MODE(fh, myname, error_code);
+    MPIO_CHECK_FS_SUPPORTS_SHARED(fh, myname, error_code);
     /* --END ERROR HANDLING-- */
 
     ADIOI_TEST_DEFERRED(adio_fh, myname, &error_code);
@@ -57,7 +57,7 @@ int MPI_File_get_position_shared(MPI_File fh, MPI_Offset * offset)
     ADIO_Get_shared_fp(adio_fh, 0, offset, &error_code);
     /* --BEGIN ERROR HANDLING-- */
     if (error_code != MPI_SUCCESS)
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
     /* --END ERROR HANDLING-- */
 
   fn_exit:

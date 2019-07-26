@@ -59,7 +59,7 @@ int MPI_File_get_view(MPI_File fh, MPI_Offset * disp, MPI_Datatype * etype,
     if (datarep == NULL) {
         error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE,
                                           myname, __LINE__, MPI_ERR_ARG, "**iodatarepnomem", 0);
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
         goto fn_exit;
     }
     /* --END ERROR HANDLING-- */

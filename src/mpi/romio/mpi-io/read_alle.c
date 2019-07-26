@@ -68,7 +68,7 @@ int MPIOI_File_read_all_end(MPI_File fh, void *buf, char *myname, MPI_Status * s
     if (!(adio_fh->split_coll_count)) {
         error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE,
                                           myname, __LINE__, MPI_ERR_IO, "**iosplitcollnone", 0);
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
         goto fn_exit;
     }
     /* --END ERROR HANDLING-- */

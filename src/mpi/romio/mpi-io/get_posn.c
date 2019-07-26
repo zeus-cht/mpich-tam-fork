@@ -50,7 +50,7 @@ int MPI_File_get_position(MPI_File fh, MPI_Offset * offset)
 
     /* --BEGIN ERROR HANDLING-- */
     MPIO_CHECK_FILE_HANDLE(adio_fh, myname, error_code);
-    MPIO_CHECK_NOT_SEQUENTIAL_MODE(adio_fh, myname, error_code);
+    MPIO_CHECK_NOT_SEQUENTIAL_MODE(fh, myname, error_code);
     /* --END ERROR HANDLING-- */
 
     ADIOI_Get_position(adio_fh, offset);

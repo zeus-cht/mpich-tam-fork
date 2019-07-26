@@ -67,7 +67,7 @@ int MPI_File_iwrite_at(MPI_File fh, MPI_Offset offset, ROMIO_CONST void *buf,
 
     /* --BEGIN ERROR HANDLING-- */
     if (error_code != MPI_SUCCESS)
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
     /* --END ERROR HANDLING-- */
 
 #ifdef MPI_hpux

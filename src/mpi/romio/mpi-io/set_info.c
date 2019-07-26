@@ -47,7 +47,7 @@ int MPI_File_set_info(MPI_File fh, MPI_Info info)
 
     /* --BEGIN ERROR HANDLING-- */
     MPIO_CHECK_FILE_HANDLE(adio_fh, myname, error_code);
-    MPIO_CHECK_INFO_ALL(info, error_code, fh->comm);
+    MPIO_CHECK_INFO_ALL(info, error_code, adio_fh->comm);
     /* --END ERROR HANDLING-- */
 
     /* set new info */
@@ -56,7 +56,7 @@ int MPI_File_set_info(MPI_File fh, MPI_Info info)
   fn_exit:
     /* --BEGIN ERROR HANDLING-- */
     if (error_code != MPI_SUCCESS)
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
     /* --END ERROR HANDLING-- */
 
     ROMIO_THREAD_CS_EXIT();

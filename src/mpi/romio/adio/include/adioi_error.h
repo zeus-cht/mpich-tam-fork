@@ -80,8 +80,9 @@
         }                                                               \
     } while (0)
 
-#define MPIO_CHECK_READABLE(fh, myname, error_code)             \
-    if (fh->access_mode & ADIO_WRONLY) {                        \
+#define MPIO_CHECK_READABLE(fh, myname, error_code) {           \
+    ADIO_File adio_fh = MPIO_File_resolve(fh);                  \
+    if (adio_fh->access_mode & ADIO_WRONLY) {                   \
         error_code = MPIO_Err_create_code(MPI_SUCCESS,          \
                                           MPIR_ERR_RECOVERABLE, \
                                           myname, __LINE__,     \
@@ -89,10 +90,12 @@
                                           "**iowronly", 0);     \
         error_code = MPIO_Err_return_file(fh, error_code);      \
         goto fn_exit;                                           \
-    }
+    }                                                           \
+}
 
-#define MPIO_CHECK_WRITABLE(fh, myname, error_code)             \
-    if (fh->access_mode & ADIO_RDONLY) {                        \
+#define MPIO_CHECK_WRITABLE(fh, myname, error_code) {           \
+    ADIO_File adio_fh = MPIO_File_resolve(fh);                  \
+    if (adio_fh->access_mode & ADIO_RDONLY) {                   \
         error_code = MPIO_Err_create_code(MPI_SUCCESS,          \
                                           MPIR_ERR_RECOVERABLE, \
                                           myname, __LINE__,     \
@@ -101,30 +104,36 @@
                                           0);                   \
         error_code = MPIO_Err_return_file(fh, error_code);      \
         goto fn_exit;                                           \
-    }
+    }                                                           \
+}
 
-#define MPIO_CHECK_NOT_SEQUENTIAL_MODE(fh, myname, error_code)          \
-    if (fh->access_mode & ADIO_SEQUENTIAL) {                            \
-        error_code = MPIO_Err_create_code(MPI_SUCCESS,                  \
-                                          MPIR_ERR_RECOVERABLE,         \
-                                          myname, __LINE__,             \
+#define MPIO_CHECK_NOT_SEQUENTIAL_MODE(fh, myname, error_code) {         \
+    ADIO_File adio_fh = MPIO_File_resolve(fh);                           \
+    if (adio_fh->access_mode & ADIO_SEQUENTIAL) {                        \
+        error_code = MPIO_Err_create_code(MPI_SUCCESS,                   \
+                                          MPIR_ERR_RECOVERABLE,          \
+                                          myname, __LINE__,              \
                                           MPI_ERR_UNSUPPORTED_OPERATION, \
-                                          "**ioamodeseq", 0);           \
-        error_code = MPIO_Err_return_file(fh, error_code);              \
-        goto fn_exit;                                                   \
-    }
+                                          "**ioamodeseq", 0);            \
+        error_code = MPIO_Err_return_file(fh, error_code);               \
+        goto fn_exit;                                                    \
+    }                                                                    \
+}
 
-#define MPIO_CHECK_INTEGRAL_ETYPE(fh, count, dtype_size, myname, error_code) \
-    if ((count*dtype_size) % fh->etype_size != 0) {                     \
+#define MPIO_CHECK_INTEGRAL_ETYPE(fh, count, dtype_size, myname, error_code) { \
+    ADIO_File adio_fh = MPIO_File_resolve(fh);                          \
+    if ((count*dtype_size) % adio_fh->etype_size != 0) {                \
         error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE, \
                                           myname, __LINE__, MPI_ERR_IO, \
                                           "**ioetype", 0);              \
         error_code = MPIO_Err_return_file(fh, error_code);              \
         goto fn_exit;                                                   \
-    }
+    }                                                                   \
+}
 
-#define MPIO_CHECK_FS_SUPPORTS_SHARED(fh, myname, error_code)           \
-    if (!ADIO_Feature(fh, ADIO_SHARED_FP))                              \
+#define MPIO_CHECK_FS_SUPPORTS_SHARED(fh, myname, error_code) {         \
+    ADIO_File adio_fh = MPIO_File_resolve(fh);                          \
+    if (!ADIO_Feature(adio_fh, ADIO_SHARED_FP))                         \
     {                                                                   \
         error_code = MPIO_Err_create_code(MPI_SUCCESS,                  \
                                           MPIR_ERR_RECOVERABLE,         \
@@ -133,7 +142,8 @@
                                           "**iosharedunsupported", 0);  \
         error_code = MPIO_Err_return_file(fh, error_code);              \
         goto fn_exit;                                                   \
-    }
+    }                                                                   \
+}
 
 /* MPIO_ERR_CREATE_CODE_XXX macros are used to clean up creation of
  * error codes for common cases in romio/adio/

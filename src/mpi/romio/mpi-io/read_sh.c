@@ -59,14 +59,14 @@ int MPI_File_read_shared(MPI_File fh, void *buf, int count,
 
     /* --BEGIN ERROR HANDLING-- */
     MPIO_CHECK_FILE_HANDLE(adio_fh, myname, error_code);
-    MPIO_CHECK_COUNT(adio_fh, count, myname, error_code);
-    MPIO_CHECK_DATATYPE(adio_fh, datatype, myname, error_code);
+    MPIO_CHECK_COUNT(fh, count, myname, error_code);
+    MPIO_CHECK_DATATYPE(fh, datatype, myname, error_code);
     /* --END ERROR HANDLING-- */
 
     MPI_Type_size_x(datatype, &datatype_size);
 
     /* --BEGIN ERROR HANDLING-- */
-    MPIO_CHECK_COUNT_SIZE(adio_fh, count, datatype_size, myname, error_code);
+    MPIO_CHECK_COUNT_SIZE(fh, count, datatype_size, myname, error_code);
     /* --END ERROR HANDLING-- */
 
     if (count * datatype_size == 0) {
@@ -78,9 +78,9 @@ int MPI_File_read_shared(MPI_File fh, void *buf, int count,
     }
 
     /* --BEGIN ERROR HANDLING-- */
-    MPIO_CHECK_INTEGRAL_ETYPE(adio_fh, count, datatype_size, myname, error_code);
-    MPIO_CHECK_READABLE(adio_fh, myname, error_code);
-    MPIO_CHECK_FS_SUPPORTS_SHARED(adio_fh, myname, error_code);
+    MPIO_CHECK_INTEGRAL_ETYPE(fh, count, datatype_size, myname, error_code);
+    MPIO_CHECK_READABLE(fh, myname, error_code);
+    MPIO_CHECK_FS_SUPPORTS_SHARED(fh, myname, error_code);
     /* --END ERROR HANDLING-- */
 
     ADIOI_Datatype_iscontig(datatype, &buftype_is_contig);
@@ -93,7 +93,7 @@ int MPI_File_read_shared(MPI_File fh, void *buf, int count,
     ADIO_Get_shared_fp(adio_fh, incr, &shared_fp, &error_code);
     /* --BEGIN ERROR HANDLING-- */
     if (error_code != MPI_SUCCESS) {
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
         goto fn_exit;
     }
     /* --END ERROR HANDLING-- */
@@ -135,7 +135,7 @@ int MPI_File_read_shared(MPI_File fh, void *buf, int count,
 
     /* --BEGIN ERROR HANDLING-- */
     if (error_code != MPI_SUCCESS)
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
     /* --END ERROR HANDLING-- */
 
     if (e32_buf != NULL) {

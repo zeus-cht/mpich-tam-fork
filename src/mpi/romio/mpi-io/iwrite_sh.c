@@ -62,16 +62,16 @@ int MPI_File_iwrite_shared(MPI_File fh, ROMIO_CONST void *buf, int count,
 
     /* --BEGIN ERROR HANDLING-- */
     MPIO_CHECK_FILE_HANDLE(adio_fh, myname, error_code);
-    MPIO_CHECK_COUNT(adio_fh, count, myname, error_code);
-    MPIO_CHECK_DATATYPE(adio_fh, datatype, myname, error_code);
+    MPIO_CHECK_COUNT(fh, count, myname, error_code);
+    MPIO_CHECK_DATATYPE(fh, datatype, myname, error_code);
     /* --END ERROR HANDLING-- */
 
     MPI_Type_size_x(datatype, &datatype_size);
 
     /* --BEGIN ERROR HANDLING-- */
-    MPIO_CHECK_INTEGRAL_ETYPE(adio_fh, count, datatype_size, myname, error_code);
-    MPIO_CHECK_FS_SUPPORTS_SHARED(adio_fh, myname, error_code);
-    MPIO_CHECK_COUNT_SIZE(adio_fh, count, datatype_size, myname, error_code);
+    MPIO_CHECK_INTEGRAL_ETYPE(fh, count, datatype_size, myname, error_code);
+    MPIO_CHECK_FS_SUPPORTS_SHARED(fh, myname, error_code);
+    MPIO_CHECK_COUNT_SIZE(fh, count, datatype_size, myname, error_code);
     /* --END ERROR HANDLING-- */
 
     ADIOI_Datatype_iscontig(datatype, &buftype_is_contig);
@@ -83,7 +83,7 @@ int MPI_File_iwrite_shared(MPI_File fh, ROMIO_CONST void *buf, int count,
     ADIO_Get_shared_fp(adio_fh, incr, &shared_fp, &error_code);
     if (error_code != MPI_SUCCESS) {
         /* note: ADIO_Get_shared_fp should have set up error code already? */
-        MPIO_Err_return_file(adio_fh, error_code);
+        MPIO_Err_return_file(fh, error_code);
     }
 
     /* contiguous or strided? */
@@ -107,7 +107,7 @@ int MPI_File_iwrite_shared(MPI_File fh, ROMIO_CONST void *buf, int count,
             if (adio_fh->file_system != ADIO_NFS)
                 ADIOI_UNLOCK(adio_fh, off, SEEK_SET, bufsize);
 
-            MPIO_Completed_request_create(&adio_fh, bufsize, &error_code, request);
+            MPIO_Completed_request_create(&fh, bufsize, &error_code, request);
         }
     } else
         ADIO_IwriteStrided(adio_fh, buf, count, datatype, ADIO_EXPLICIT_OFFSET,

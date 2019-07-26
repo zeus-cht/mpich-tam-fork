@@ -67,7 +67,7 @@ int MPI_File_get_size(MPI_File fh, MPI_Offset * size)
     ADIO_Fcntl(adio_fh, ADIO_FCNTL_GET_FSIZE, fcntl_struct, &error_code);
     /* --BEGIN ERROR HANDLING-- */
     if (error_code != MPI_SUCCESS)
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
     /* --END ERROR HANDLING-- */
     *size = fcntl_struct->fsize;
     ADIOI_Free(fcntl_struct);

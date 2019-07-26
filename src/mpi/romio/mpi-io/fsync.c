@@ -60,7 +60,7 @@ int MPI_File_sync(MPI_File fh)
     ADIO_Flush(adio_fh, &error_code);
     /* --BEGIN ERROR HANDLING-- */
     if (error_code != MPI_SUCCESS)
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
     /* --END ERROR HANDLING-- */
 
 #ifdef MPI_hpux

@@ -62,16 +62,16 @@ int MPI_File_iread_shared(MPI_File fh, void *buf, int count,
 
     /* --BEGIN ERROR HANDLING-- */
     MPIO_CHECK_FILE_HANDLE(adio_fh, myname, error_code);
-    MPIO_CHECK_COUNT(adio_fh, count, myname, error_code);
-    MPIO_CHECK_DATATYPE(adio_fh, datatype, myname, error_code);
+    MPIO_CHECK_COUNT(fh, count, myname, error_code);
+    MPIO_CHECK_DATATYPE(fh, datatype, myname, error_code);
     /* --END ERROR HANDLING-- */
 
     MPI_Type_size_x(datatype, &datatype_size);
 
     /* --BEGIN ERROR HANDLING-- */
-    MPIO_CHECK_INTEGRAL_ETYPE(adio_fh, count, datatype_size, myname, error_code);
-    MPIO_CHECK_FS_SUPPORTS_SHARED(adio_fh, myname, error_code);
-    MPIO_CHECK_COUNT_SIZE(adio_fh, count, datatype_size, myname, error_code);
+    MPIO_CHECK_INTEGRAL_ETYPE(fh, count, datatype_size, myname, error_code);
+    MPIO_CHECK_FS_SUPPORTS_SHARED(fh, myname, error_code);
+    MPIO_CHECK_COUNT_SIZE(fh, count, datatype_size, myname, error_code);
     /* --END ERROR HANDLING-- */
 
     ADIOI_Datatype_iscontig(datatype, &buftype_is_contig);
@@ -85,7 +85,7 @@ int MPI_File_iread_shared(MPI_File fh, void *buf, int count,
     /* --BEGIN ERROR HANDLING-- */
     if (error_code != MPI_SUCCESS) {
         /* note: ADIO_Get_shared_fp should have set up error code already? */
-        MPIO_Err_return_file(adio_fh, error_code);
+        MPIO_Err_return_file(fh, error_code);
     }
     /* --END ERROR HANDLING-- */
 
@@ -113,7 +113,7 @@ int MPI_File_iread_shared(MPI_File fh, void *buf, int count,
             if (error_code == MPI_SUCCESS) {
                 nbytes = count * datatype_size;
             }
-            MPIO_Completed_request_create(&adio_fh, nbytes, &error_code, request);
+            MPIO_Completed_request_create(&fh, nbytes, &error_code, request);
         }
     } else {
         ADIO_IreadStrided(adio_fh, buf, count, datatype, ADIO_EXPLICIT_OFFSET,
@@ -122,7 +122,7 @@ int MPI_File_iread_shared(MPI_File fh, void *buf, int count,
 
     /* --BEGIN ERROR HANDLING-- */
     if (error_code != MPI_SUCCESS)
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
     /* --END ERROR HANDLING-- */
 
   fn_exit:

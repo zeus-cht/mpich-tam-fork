@@ -59,7 +59,7 @@ int MPI_File_set_view(MPI_File fh, MPI_Offset disp, MPI_Datatype etype,
     if ((disp < 0) && (disp != MPI_DISPLACEMENT_CURRENT)) {
         error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE,
                                           myname, __LINE__, MPI_ERR_ARG, "**iobaddisp", 0);
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
         goto fn_exit;
     }
 
@@ -67,38 +67,38 @@ int MPI_File_set_view(MPI_File fh, MPI_Offset disp, MPI_Datatype etype,
     if (etype == MPI_DATATYPE_NULL) {
         error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE,
                                           myname, __LINE__, MPI_ERR_ARG, "**ioetype", 0);
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
         goto fn_exit;
     }
     MPIO_DATATYPE_ISCOMMITTED(etype, error_code);
     if (error_code != MPI_SUCCESS) {
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
         goto fn_exit;
     }
 
     if (filetype == MPI_DATATYPE_NULL) {
         error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE,
                                           myname, __LINE__, MPI_ERR_ARG, "**iofiletype", 0);
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
         goto fn_exit;
     }
     MPIO_DATATYPE_ISCOMMITTED(filetype, error_code);
     if (error_code != MPI_SUCCESS) {
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
         goto fn_exit;
     }
 
     if ((adio_fh->access_mode & MPI_MODE_SEQUENTIAL) && (disp != MPI_DISPLACEMENT_CURRENT)) {
         error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE,
                                           myname, __LINE__, MPI_ERR_ARG, "**iodispifseq", 0);
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
         goto fn_exit;
     }
 
     if ((disp == MPI_DISPLACEMENT_CURRENT) && !(adio_fh->access_mode & MPI_MODE_SEQUENTIAL)) {
         error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE,
                                           myname, __LINE__, MPI_ERR_ARG, "**iodispifseq", 0);
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
         goto fn_exit;
     }
     MPIO_CHECK_INFO_ALL(info, error_code, adio_fh->comm);
@@ -111,7 +111,7 @@ int MPI_File_set_view(MPI_File fh, MPI_Offset disp, MPI_Datatype etype,
     if (etype_size != 0 && filetype_size % etype_size != 0) {
         error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE,
                                           myname, __LINE__, MPI_ERR_ARG, "**iofiletype", 0);
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
         goto fn_exit;
     }
 
@@ -123,7 +123,7 @@ int MPI_File_set_view(MPI_File fh, MPI_Offset disp, MPI_Datatype etype,
         error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE,
                                           myname, __LINE__,
                                           MPI_ERR_UNSUPPORTED_DATAREP, "**unsupporteddatarep", 0);
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
         goto fn_exit;
     }
     /* --END ERROR HANDLING-- */
@@ -144,7 +144,7 @@ int MPI_File_set_view(MPI_File fh, MPI_Offset disp, MPI_Datatype etype,
 
     /* --BEGIN ERROR HANDLING-- */
     if (error_code != MPI_SUCCESS) {
-        error_code = MPIO_Err_return_file(adio_fh, error_code);
+        error_code = MPIO_Err_return_file(fh, error_code);
         goto fn_exit;
     }
     /* --END ERROR HANDLING-- */
@@ -163,7 +163,7 @@ int MPI_File_set_view(MPI_File fh, MPI_Offset disp, MPI_Datatype etype,
         ADIO_Set_shared_fp(adio_fh, 0, &error_code);
         /* --BEGIN ERROR HANDLING-- */
         if (error_code != MPI_SUCCESS)
-            error_code = MPIO_Err_return_file(adio_fh, error_code);
+            error_code = MPIO_Err_return_file(fh, error_code);
         /* --END ERROR HANDLING-- */
     }
 
