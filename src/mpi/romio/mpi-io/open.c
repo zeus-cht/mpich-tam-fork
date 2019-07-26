@@ -53,6 +53,7 @@ int MPI_File_open(MPI_Comm comm, ROMIO_CONST char *filename, int amode,
     char *tmp;
     MPI_Comm dupcomm = MPI_COMM_NULL;
     ADIOI_Fns *fsops;
+    ADIO_File adio_fh;
     static char myname[] = "MPI_FILE_OPEN";
 #ifdef MPI_hpux
     int fl_xmpi;
@@ -151,32 +152,34 @@ int MPI_File_open(MPI_Comm comm, ROMIO_CONST char *filename, int amode,
     }
     /* --END ERROR HANDLING-- */
 
+    adio_fh = MPIO_File_resolve(*fh);
+
     /* if MPI_MODE_SEQUENTIAL requested, file systems cannot do explicit offset
      * or independent file pointer accesses, leaving not much else aside from
      * shared file pointer accesses. */
-    if (!ADIO_Feature((*fh), ADIO_SHARED_FP) && (amode & MPI_MODE_SEQUENTIAL)) {
+    if (!ADIO_Feature(adio_fh, ADIO_SHARED_FP) && (amode & MPI_MODE_SEQUENTIAL)) {
         error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE,
                                           myname, __LINE__,
                                           MPI_ERR_UNSUPPORTED_OPERATION, "**iosequnsupported", 0);
-        ADIO_Close(*fh, &error_code);
+        ADIO_Close(adio_fh, &error_code);
         goto fn_fail;
     }
 
     /* determine name of file that will hold the shared file pointer */
     /* can't support shared file pointers on a file system that doesn't
      * support file locking. */
-    if ((error_code == MPI_SUCCESS) && ADIO_Feature((*fh), ADIO_SHARED_FP)) {
+    if ((error_code == MPI_SUCCESS) && ADIO_Feature(adio_fh, ADIO_SHARED_FP)) {
         MPI_Comm_rank(dupcomm, &rank);
-        ADIOI_Shfp_fname(*fh, rank, &error_code);
+        ADIOI_Shfp_fname(adio_fh, rank, &error_code);
         if (error_code != MPI_SUCCESS)
             goto fn_fail;
 
         /* if MPI_MODE_APPEND, set the shared file pointer to end of file.
          * indiv. file pointer already set to end of file in ADIO_Open.
          * Here file view is just bytes. */
-        if ((*fh)->access_mode & MPI_MODE_APPEND) {
-            if (rank == (*fh)->hints->ranklist[0])      /* only one person need set the sharedfp */
-                ADIO_Set_shared_fp(*fh, (*fh)->fp_ind, &error_code);
+        if (adio_fh->access_mode & MPI_MODE_APPEND) {
+            if (rank == adio_fh->hints->ranklist[0])    /* only one person need set the sharedfp */
+                ADIO_Set_shared_fp(adio_fh, adio_fh->fp_ind, &error_code);
             MPI_Barrier(dupcomm);
         }
     }
