@@ -23,7 +23,7 @@ EXTRA_DIST =
 SUFFIXES = 
 doc1_src_txt =
 
-external_subdirs = @mpl_srcdir@
+external_subdirs = @mpl_builddir@
 external_dist_subdirs = @mpl_dist_srcdir@
 external_includes = @mpl_includedir@
 external_ldflags = @mpl_libdir@
@@ -57,7 +57,7 @@ nodist_include_HEADERS += include/mpio.h include/mpiof.h
 
 # ------------------------------------------------------------------------
 
-SUBDIRS = $(external_subdirs)
+SUBDIRS = $(external_subdirs) . test
 DIST_SUBDIRS = test test-internal $(external_dist_subdirs)
 
 # for the sake of parallel make and avoiding an excessive number of convenience

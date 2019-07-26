@@ -14,7 +14,7 @@ F77 = $(TEST_F77)
 
 # because := is not universally avalible, we have to play games to use the
 # user-specified LDFLAGS and OUR_LIBS env. variables (if set)
-OUR_LIBS = $(TEST_LIBNAME) $(MPI_LIB)
+OUR_LIBS = $(MPI_LIB) $(top_builddir)/libromio.la $(mpl_lib)
 
 LDADD = $(OUR_LIBS)
 
@@ -29,11 +29,11 @@ CTESTS = simple perf async coll_test coll_perf misc file_info excl large_array \
 FTESTS = fcoll_test fperf fmisc pfcoll_test 
 
 
-noinst_PROGRAMS = $(CTESTS)
+check_PROGRAMS = $(CTESTS)
 
 if BUILD_F77_TESTS
 
-noinst_PROGRAMS += $(FTESTS)
+check_PROGRAMS += $(FTESTS)
 fperf_SOURCES = fperf.f
 fcoll_test_SOURCES = fcoll_test.f
 fmisc_SOURCES = fmisc.f
@@ -41,3 +41,4 @@ pfcoll_test_SOURCES = pfcoll_test.f
 
 endif BUILD_F77_TESTS
 
+TESTS = runtests
