@@ -44,7 +44,7 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 # AC_MSG_RESULT([Configuring ROMIO Version $VERSION])
 CONFIGURE_ARGS="$*"
 if test -n "$CONFIGURE_ARGS" ; then
-    echo "Configuring with args $CONFIGURE_ARGS"
+    AC_MSG_NOTICE([Configuring with args $CONFIGURE_ARGS])
 fi
 
 AC_CONFIG_HEADER(adio/include/romioconf.h)
@@ -112,27 +112,25 @@ AC_ARG_WITH([mpl-prefix],
                              distributed with Hydra.])],
             [],dnl action-if-given
             [with_mpl_prefix=embedded]) dnl action-if-not-given
-mpl_srcdir=""
-AC_SUBST([mpl_srcdir])
 # Controls whether we recurse into the MPL dir when running "dist" rules like
 # "make distclean".  Technically we are cheating whenever DIST_SUBDIRS is not a
 # superset of SUBDIRS, but we don't want to double-distclean and similar.
+mpl_srcdir=""
+mpl_builddir=""
 mpl_dist_srcdir=""
-AC_SUBST(mpl_dist_srcdir)
 mpl_includedir=""
-AC_SUBST([mpl_includedir])
 mpl_libdir=""
-AC_SUBST([mpl_libdir])
 mpl_lib=""
-AC_SUBST([mpl_lib])
 if test "$FROM_MPICH" = "no" ; then
 if test "$with_mpl_prefix" = "embedded" ; then
-    mpl_srcdir="mpl"
-    mpl_dist_srcdir="mpl"
+    mpl_srcdir='$(top_srcdir)/mpl'
+    mpl_builddir='$(top_builddir)/mpl'
+    mpl_dist_srcdir='$(top_builddir)/mpl'
     mpl_subdir_args="--disable-versioning --enable-embedded"
     PAC_CONFIG_SUBDIR_ARGS([mpl],[$mpl_subdir_args],[],[AC_MSG_ERROR(MPL configure failed)])
     mpl_includedir='-I$(top_builddir)/mpl/include -I$(top_srcdir)/mpl/include'
-    mpl_lib="mpl/lib${MPLLIBNAME}.la"
+    mpl_libdir='-L$(top_builddir)/mpl'
+    mpl_lib='$(top_builddir)'"/mpl/lib${MPLLIBNAME}.la"
 else
     # The user specified an already-installed MPL; just sanity check, don't
     # subconfigure it
@@ -143,6 +141,12 @@ else
     mpl_lib="-l${MPLLIBNAME}"
 fi
 fi
+AC_SUBST([mpl_srcdir])
+AC_SUBST([mpl_builddir])
+AC_SUBST(mpl_dist_srcdir)
+AC_SUBST([mpl_includedir])
+AC_SUBST([mpl_libdir])
+AC_SUBST([mpl_lib])
 
 CFLAGS=${CFLAGS:-""}
 LL="lld"
@@ -436,11 +440,7 @@ fi
 
 AC_CHECK_TYPE(long long)
 AC_CHECK_SIZEOF(long long)
-if test -z "$MPI_IMPL" ; then
-	MPI_IMPL=mpich
-	mpi_mpich=1
-fi
-if test $MPI_IMPL = "mpich" ; then
+if test "x$MPI_IMPL" = "xmpich" ; then
 	TEST_CC=mpicc
 	TEST_F77=mpifort
 else
@@ -459,7 +459,7 @@ AC_HAVE_FUNCS(memalign)
 # MPICH provides all of the Fortran interface routines?
 #
 if test $NOF77 = 0 ; then
-    echo "checking Fortran external names"
+    AC_MSG_NOTICE([checking Fortran external names])
     PAC_GET_FORTNAMES
     if test -n "$WDEF" ; then
         CFLAGS="$CFLAGS $WDEF"
@@ -544,7 +544,7 @@ if test "$ac_cv_sizeof_long_long" != 0 ; then
        MPI_OFFSET_KIND1="!"
        MPI_OFFSET_KIND2="!"
     else
-       echo "defining MPI_Offset as long in C and integer in Fortran" 
+       AC_MSG_NOTICE([defining MPI_Offset as long in C and integer in Fortran])
        MPI_OFFSET_TYPE="long"
        DEFINE_MPI_OFFSET="typedef long MPI_Offset;"
        FORTRAN_MPI_OFFSET="integer"
@@ -553,7 +553,7 @@ if test "$ac_cv_sizeof_long_long" != 0 ; then
        MPI_OFFSET_KIND2="!"
     fi
 else
-    echo "defining MPI_Offset as long in C and integer in Fortran" 
+    AC_MSG_NOTICE([defining MPI_Offset as long in C and integer in Fortran])
     MPI_OFFSET_TYPE="long"
     DEFINE_MPI_OFFSET="typedef long MPI_Offset;"
     FORTRAN_MPI_OFFSET="integer"
@@ -1373,8 +1373,21 @@ if test -n "$mpi_mpich"; then
       MPIOF_H_INCLUDED=1
    fi
    if test "$FROM_MPICH" = no; then
-      AC_DEFINE(NEEDS_MPI_TEST,1,[Define if mpi_test needed])
-      AC_DEFINE(MPICH,1,[Define if using MPICH])
+      dnl Check if MPI C compiler is MPICH based, e.g. Cray MPI
+      AC_MSG_CHECKING([whether MPI C compiler is MPICH based])
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <mpi.h>
+#ifdef MPICH_NAME
+#error MPICH_NAME is not defined
+#endif
+      ]])], [is_mpich_based=yes], [is_mpich_based=no])
+      AC_MSG_RESULT([$is_mpich_based])
+
+      if test "$is_mpich_based" = no; then
+         AC_DEFINE(NEEDS_MPI_TEST,1,[Define if mpi_test needed])
+         AC_DEFINE(MPICH,1,[Define if using MPICH])
+      fi
+      unset is_mpich_based
    fi
 fi
 
@@ -1423,14 +1436,11 @@ AC_SUBST(master_topbuild_dir)
 if test "$FROM_MPICH" = yes ; then
    AC_DEFINE(ROMIO_INSIDE_MPICH,1,[Define if compiling within MPICH])
 fi
+AM_CONDITIONAL([BUILD_ROMIO_INSIDE_MPICH],[test "$FROM_MPICH" = "yes" ])
 
 if test "$FROM_MPICH" = no ; then
     if test -z "$LIBNAME"; then
-        LIBNAME="$top_build_dir/lib/libmpio.a"
-    fi
-    #
-    if test ! -d $top_build_dir/lib ; then 
-        mkdir $top_build_dir/lib
+        LIBNAME="$top_build_dir/libromio.la"
     fi
 else
     MPILIBNAME=${MPILIBNAME:-mpich}
@@ -1472,9 +1482,9 @@ else
 fi
 #
 if test "$MPI_INCLUDE_DIR" = "." ; then
-   ROMIO_INCLUDE="-I../include"
+   ROMIO_INCLUDE='-I$(top_builddir)/include -I$(top_srcdir)/adio/include'
 else 
-   ROMIO_INCLUDE="-I../include -I$MPI_INCLUDE_DIR"
+   ROMIO_INCLUDE='-I$(top_builddir)/include -I$(top_srcdir)/adio/include'" -I$MPI_INCLUDE_DIR"
 fi
 #
 TEST_LIBNAME=$LIBNAME
@@ -1535,7 +1545,8 @@ elif test $FROM_MPICH = yes ; then
    DEFINE_HAVE_MPI_GREQUEST="#define HAVE_MPI_GREQUEST 1"
    DEFINE_HAVE_MPI_GREQUEST_EXTENSIONS="#define HAVE_MPI_GREQUEST_EXTENSIONS 1"
    AC_DEFINE(HAVE_MPIX_H, 1, [])
-   AC_DEFINE(HAVE_MPIIO_CONST, const, Set if MPI-IO prototypes use const qualifier)
+   # HAVE_MPIIO_CONST is now determined by whether MPI_VERSION >= 3
+   # AC_DEFINE(HAVE_MPIIO_CONST, const, Set if MPI-IO prototypes use const qualifier)
    AC_DEFINE(HAVE_MPI_TYPE_SIZE_X, 1, [Define if MPI library provides MPI_TYPE_SIZE_X])
    AC_DEFINE(HAVE_MPI_STATUS_SET_ELEMENTS_X, 1, [Define if MPI library provides MPI_STATUS_SET_ELEMENTS_X])
    AC_DEFINE(HAVE_DECL_MPI_COMBINER_HINDEXED_BLOCK, 1, [Define if MPI library provides HINDEXED_BLOCK datatype])
@@ -1550,7 +1561,8 @@ if test $WITHIN_KNOWN_MPI_IMPL = no ; then
    PAC_TEST_MPI_GREQUEST
    AC_DEFINE(PRINT_ERR_MSG,1,[Define for printing error messages])
    AC_CHECK_TYPE([MPI_Count],[],[AC_DEFINE_UNQUOTED([MPI_Count],[MPI_Aint],[Define to "MPI_Aint" if MPI does not provide MPI_Count]) ], [[#include <mpi.h>]])
-   PAC_TEST_NEEDS_CONST
+   # HAVE_MPIIO_CONST is now determined by whether MPI_VERSION >= 3
+   # PAC_TEST_NEEDS_CONST
    AC_CHECK_DECLS([MPI_COMBINER_HINDEXED_BLOCK], [], [], [[#include <mpi.h>]])
    AC_CHECK_FUNCS(MPI_Type_size_x MPI_Status_set_elements_x)
 fi
@@ -1649,7 +1661,7 @@ else
    F77MPIOINC="include 'mpiof.h'"
 fi
 
-echo "setting SYSDEP_INC to $SYSDEP_INC"
+AC_MSG_NOTICE([setting SYSDEP_INC to $SYSDEP_INC])
 AC_SUBST(SYSDEP_INC)
 
 AC_C_RESTRICT
@@ -1658,13 +1670,49 @@ PAC_C_GNU_ATTRIBUTE
 # support gcov test coverage information
 PAC_ENABLE_COVERAGE
 
-echo "setting CC to $CC"
-echo "setting F77 to $F77"
-echo "setting TEST_CC to $TEST_CC"
-echo "setting TEST_F77 to $TEST_F77"
-echo "setting CFLAGS to $CFLAGS"
-echo "setting USER_CFLAGS to $USER_CFLAGS"
-echo "setting USER_FFLAGS to $USER_FFLAGS"
+AC_CHECK_DECL([MPI_FILE_DEFINED], [], [], [[#include <mpi.h>]])
+if test "x${ac_cv_have_decl_MPI_FILE_DEFINED}" = xno ; then
+   AC_CHECK_TYPE([MPI_File],[], [], [[#include <mpi.h>]])
+   if test "x${ac_cv_type_MPI_File}" = xyes ; then
+      AC_DEFINE([MPI_FILE_DEFINED],[1],[whether MPI_File is defined])
+   fi
+fi
+
+AC_CHECK_DECL([HAVE_MPI_OFFSET], [], [], [[#include <mpi.h>]])
+if test "x${ac_cv_have_decl_HAVE_MPI_OFFSET}" = xno ; then
+   AC_CHECK_TYPE([MPI_Offset],[], [], [[#include <mpi.h>]])
+   if test "x${ac_cv_type_MPI_Offset}" = xyes ; then
+      AC_DEFINE([HAVE_MPI_OFFSET],[1],[whether MPI_Offset is defined])
+   fi
+fi
+
+AC_CHECK_TYPE([MPI_Datarep_conversion_function],[], [], [[#include <mpi.h>]])
+if test "x${ac_cv_type_MPI_Datarep_conversion_function}" = xyes ; then
+   AC_DEFINE([HAVE_MPI_DATAREP_FUNCTIONS],[1],[whether MPI_Datarep_conversion_function is defined])
+fi
+
+AC_CHECK_TYPE([MPI_Datarep_extent_function],[], [], [[#include <mpi.h>]])
+if test "x${ac_cv_type_MPI_Datarep_extent_function}" = xyes ; then
+   AC_DEFINE([HAVE_MPI_DATAREP_EXTENT_FUNCTION],[1],[whether MPI_Datarep_extent_function is defined])
+fi
+
+AC_CHECK_TYPE([MPI_FILE_NULL],[], [], [[#include <mpi.h>]])
+if test "x${ac_cv_type_MPI_FILE_NULL}" = xyes ; then
+   AC_DEFINE([HAVE_MPI_FILE_NULL],[1],[whether MPI_FILE_NULL is defined])
+fi
+
+AC_CHECK_TYPE([MPIX_Grequest_class],[], [], [[#include <mpi.h>]])
+if test "x${ac_cv_type_MPIX_Grequest_class}" = xyes ; then
+   AC_DEFINE([HAVE_MPIX_GREQUEST_CLASS],[1],[whether MPIX_Grequest_class is defined])
+fi
+
+AC_MSG_NOTICE([setting CC to $CC])
+AC_MSG_NOTICE([setting F77 to $F77])
+AC_MSG_NOTICE([setting TEST_CC to $TEST_CC])
+AC_MSG_NOTICE([setting TEST_F77 to $TEST_F77])
+AC_MSG_NOTICE([setting CFLAGS to $CFLAGS])
+AC_MSG_NOTICE([setting USER_CFLAGS to $USER_CFLAGS])
+AC_MSG_NOTICE([setting USER_FFLAGS to $USER_FFLAGS])
 
 AC_SUBST(ARCH)
 AC_SUBST(FILE_SYSTEM)
