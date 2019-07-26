@@ -29,7 +29,7 @@ MPI_File MPIO_File_create(int size)
 
 ADIO_File MPIO_File_resolve(MPI_File mpi_fh)
 {
-    return mpi_fh;
+    return (ADIO_File) mpi_fh;
 }
 
 void MPIO_File_free(MPI_File * mpi_fh)

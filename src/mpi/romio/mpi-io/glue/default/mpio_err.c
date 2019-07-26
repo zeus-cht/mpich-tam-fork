@@ -58,9 +58,9 @@ int MPIO_Err_return_file(MPI_File mpi_fh, int error_code)
 
     if (adio_fh->err_handler == MPI_ERRORS_ARE_FATAL || adio_fh->err_handler != MPI_ERRORS_RETURN) {
         MPI_Abort(MPI_COMM_WORLD, 1);
-    } else {
-        return error_code;
     }
+
+    return error_code;
 }
 
 int MPIO_Err_return_comm(MPI_Comm mpi_comm, int error_code)
