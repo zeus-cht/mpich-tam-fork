@@ -8,7 +8,7 @@
 include $(top_srcdir)/mpi-io/glue/Makefile.mk
 include $(top_srcdir)/mpi-io/fortran/Makefile.mk
 
-AM_CPPFLAGS += -I$(top_builddir)/mpi-io -I$(top_srcdir)/mpi-io
+AM_CPPFLAGS += -I$(top_builddir)/mpi-io -I$(top_srcdir)/mpi-io $(mpl_includedir)
 noinst_HEADERS += mpi-io/mpioimpl.h mpi-io/mpioprof.h
 
 romio_mpi_sources +=          \
@@ -77,8 +77,11 @@ romio_other_sources +=       \
     mpi-io/mpich_fileutil.c \
     mpi-io/mpir-mpioinit.c   \
     mpi-io/mpiu_greq.c \
-    mpi-io/mpiu_external32.c \
-    mpi-io/mpir_cst_filesys.c
+    mpi-io/mpiu_external32.c
+
+if BUILD_ROMIO_INSIDE_MPICH
+   romio_other_sources += mpi-io/mpir_cst_filesys.c
+endif
 
 # helper variables for conditionally compiled sources
 mpio_request_sources=   \
