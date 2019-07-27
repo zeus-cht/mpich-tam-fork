@@ -21,15 +21,6 @@
  * on MPI-IO scalability").
  */
 
-enum {
-    BLOCKSIZE = 0,
-    STRIPE_SIZE,
-    STRIPE_FACTOR,
-    START_IODEVICE,
-    STAT_ITEMS
-} file_stats;
-
-
 /* generate an MPI datatype describing the members of the ADIO_File struct that
  * we want to ensure all processes have.  In deferred open, aggregators will
  * open the file and possibly read layout and other information.
@@ -38,20 +29,28 @@ enum {
 
 static MPI_Datatype make_stats_type(ADIO_File fd)
 {
+    enum file_stats {
+        BLOCKSIZE = 0,
+        STRIPE_SIZE,
+        STRIPE_FACTOR,
+        START_IODEVICE,
+        STAT_ITEMS
+    };
+
     int lens[STAT_ITEMS];
     MPI_Aint offsets[STAT_ITEMS];
     MPI_Datatype types[STAT_ITEMS];
     MPI_Datatype newtype;
 
     lens[BLOCKSIZE] = 1;
-    MPI_Address(&fd->blksize, &offsets[BLOCKSIZE]);
+    MPI_Get_address(&fd->blksize, &offsets[BLOCKSIZE]);
     types[BLOCKSIZE] = MPI_LONG;
 
     lens[STRIPE_SIZE] = lens[STRIPE_FACTOR] = lens[START_IODEVICE] = 1;
     types[STRIPE_SIZE] = types[STRIPE_FACTOR] = types[START_IODEVICE] = MPI_INT;
-    MPI_Address(&fd->hints->striping_unit, &offsets[STRIPE_SIZE]);
-    MPI_Address(&fd->hints->striping_factor, &offsets[STRIPE_FACTOR]);
-    MPI_Address(&fd->hints->start_iodevice, &offsets[START_IODEVICE]);
+    MPI_Get_address(&fd->hints->striping_unit, &offsets[STRIPE_SIZE]);
+    MPI_Get_address(&fd->hints->striping_factor, &offsets[STRIPE_FACTOR]);
+    MPI_Get_address(&fd->hints->start_iodevice, &offsets[START_IODEVICE]);
 
 
     MPI_Type_create_struct(STAT_ITEMS, lens, offsets, types, &newtype);

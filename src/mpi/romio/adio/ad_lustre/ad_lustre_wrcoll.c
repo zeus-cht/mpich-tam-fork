@@ -1228,7 +1228,7 @@ static void ADIOI_LUSTRE_IterateOneSided(ADIO_File fd, const void *buf, int *str
     /* Remember romio_onesided_no_rmw setting if we have to re-do
      * the aggregation if holes are found.
      */
-    int prev_romio_onesided_no_rmw = romio_onesided_no_rmw;
+    int prev_romio_onesided_no_rmw = fd->romio_onesided_no_rmw;
 
     while (doAggregation) {
 
@@ -1436,7 +1436,7 @@ static void ADIOI_LUSTRE_IterateOneSided(ADIO_File fd, const void *buf, int *str
              * write completes that we told it do with the stripeParms.flushCB
              * flag then we need to do a barrier here.
              */
-            if (!romio_onesided_always_rmw && stripeParms.flushCB) {
+            if (!fd->romio_onesided_always_rmw && stripeParms.flushCB) {
                 if (fileSegmentIter < (numSegments - 1)) {
                     MPI_Barrier(fd->comm);
                 }
@@ -1455,7 +1455,7 @@ static void ADIOI_LUSTRE_IterateOneSided(ADIO_File fd, const void *buf, int *str
         /* Check for holes in the data unless romio_onesided_no_rmw is set.
          * If a hole is found redo the entire aggregation and write.
          */
-        if (!romio_onesided_no_rmw) {
+        if (!fd->romio_onesided_no_rmw) {
             int anyHolesFound = 0;
             MPI_Allreduce(&holeFound, &anyHolesFound, 1, MPI_INT, MPI_MAX, fd->comm);
 
@@ -1467,8 +1467,8 @@ static void ADIOI_LUSTRE_IterateOneSided(ADIO_File fd, const void *buf, int *str
 
                 currentSegementOffset =
                     (ADIO_Offset) startingStripeWithData *(ADIO_Offset) (striping_info[0]);
-                romio_onesided_always_rmw = 1;
-                romio_onesided_no_rmw = 1;
+                fd->romio_onesided_always_rmw = 1;
+                fd->romio_onesided_no_rmw = 1;
 
                 /* Holes are found in the data and the user has not set
                  * romio_onesided_no_rmw --- set romio_onesided_always_rmw to 1
@@ -1476,7 +1476,7 @@ static void ADIOI_LUSTRE_IterateOneSided(ADIO_File fd, const void *buf, int *str
                  * romio_onesided_inform_rmw set then inform him of this condition
                  * and behavior.
                  */
-                if (romio_onesided_inform_rmw && (myrank == 0)) {
+                if (fd->romio_onesided_inform_rmw && (myrank == 0)) {
                     FPRINTF(stderr, "Information: Holes found during one-sided "
                             "write aggregation algorithm --- re-running one-sided "
                             "write aggregation with ROMIO_ONESIDED_ALWAYS_RMW set to 1.\n");
@@ -1486,7 +1486,7 @@ static void ADIOI_LUSTRE_IterateOneSided(ADIO_File fd, const void *buf, int *str
         } else
             doAggregation = 0;
     }   // while doAggregation
-    romio_onesided_no_rmw = prev_romio_onesided_no_rmw;
+    fd->romio_onesided_no_rmw = prev_romio_onesided_no_rmw;
 
     ADIOI_Free(segment_stripe_start);
     ADIOI_Free(segment_stripe_end);

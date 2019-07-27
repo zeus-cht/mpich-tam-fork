@@ -13,6 +13,23 @@
 #include "mpe.h"
 #endif
 
+#if !defined(MPI_IMPL_IS_MPICH) && !defined(HAVE_MPIX_GREQUEST_CLASS) && !defined(HAVE_MPI_GREQUEST_EXTENSIONS)
+void ADIOI_GEN_IwriteStridedColl(ADIO_File fd, const void *buf, int count,
+                                 MPI_Datatype datatype, int file_ptr_type,
+                                 ADIO_Offset offset, MPI_Request * request, int *error_code)
+{
+    static char myname[] = "ADIOI_GEN_IwriteStridedColl";
+
+    *error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE,
+                                       myname, __LINE__,
+                                       MPI_ERR_UNSUPPORTED_OPERATION, "**fileopunsupported", 0);
+}
+#else
+
+#ifdef MPIO_BUILD_PROFILING
+#include "../../mpi-io/mpioprof.h"
+#endif
+
 /* ADIOI_GEN_IwriteStridedColl */
 struct ADIOI_GEN_IwriteStridedColl_vars {
     /* requests */
@@ -584,6 +601,7 @@ static void ADIOI_Iexch_and_write(ADIOI_NBC_Request * nbc_req, int *error_code)
      * at least another 8Mbytes of temp space is unacceptable. */
 
     int i, j;
+    MPI_Aint lb;
     ADIO_Offset st_loc = -1, end_loc = -1;
     int info_flag, coll_bufsize;
     char *value;
@@ -668,7 +686,7 @@ static void ADIOI_Iexch_and_write(ADIOI_NBC_Request * nbc_req, int *error_code)
     if (!vars->buftype_is_contig) {
         vars->flat_buf = ADIOI_Flatten_and_find(datatype);
     }
-    MPI_Type_extent(datatype, &vars->buftype_extent);
+    MPI_Type_get_extent(datatype, &lb, &vars->buftype_extent);
 
 
     /* I need to check if there are any outstanding nonblocking writes to
@@ -1509,10 +1527,11 @@ static int ADIOI_GEN_iwc_wait_fn(int count, void **array_of_states,
 
             /* If the progress engine is blocked, we have to yield for another
              * thread to be able to unblock the progress engine. */
-            MPIR_Ext_cs_yield();
+            ROMIO_THREAD_CS_YIELD();
         }
     }
 
   fn_exit:
     return errcode;
 }
+#endif
