@@ -286,7 +286,7 @@ typedef struct {
 #define ADIO_GPFS                168
 #define ADIO_IME                 169    /* IME burst buffer */
 #define ADIO_DAOS                170
-#define ADIO_MOCHIO               171   /* ROMIO+Mochi */
+#define ADIO_BV                  171    /* ROMIO+Mochi */
 
 #define ADIO_SEEK_SET            SEEK_SET
 #define ADIO_SEEK_CUR            SEEK_CUR
