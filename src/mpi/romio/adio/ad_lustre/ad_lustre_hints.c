@@ -22,6 +22,11 @@ void ADIOI_LUSTRE_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
     ADIO_Offset stripe_val[3], str_factor = -1, str_unit = 0, start_iodev = -1;
     int myrank;
     static char myname[] = "ADIOI_LUSTRE_SETINFO";
+    /* These variables are for getting Lustre stripe count information */
+    int lumlen, err, number_of_nodes;
+    FDTYPE temp_sys;
+    int perm, old_mask, amode;
+    struct lov_user_md *lum = NULL;
 
 
 #ifdef HAVE_LUSTRE_LOCKAHEAD
@@ -68,6 +73,55 @@ void ADIOI_LUSTRE_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
             if (flag) {
                 ADIOI_Info_set(fd->info, "romio_lustre_start_iodevice", value);
                 start_iodev = atoll(value);
+            }
+
+            /* We set global aggregators automatically for user if hints are not specified.*/
+            /* number_of_nodes is a system info set by ad_open.c, we need to perform nullity check.*/
+            ADIOI_Info_get(users_info, "number_of_nodes", MPI_MAX_INFO_VAL, value, &flag);
+            if (flag) {
+                number_of_nodes = atoi(value); 
+                //Get Lustre file striping factor in advance. This information is not availabe until the actual open time.
+                //However, we need it for determining cb_nodes and cb_config_list. Hence we open and close the file at here.
+                if (fd->perm == ADIO_PERM_NULL) {
+                    old_mask = umask(022);
+                    umask(old_mask);
+                    perm = old_mask ^ 0666;
+                } else{
+                    perm = fd->perm;
+                }
+                if (fd->access_mode & ADIO_CREATE)
+                    amode = amode | O_CREAT;
+                if (fd->access_mode & ADIO_RDONLY)
+                    amode = amode | O_RDONLY;
+                if (fd->access_mode & ADIO_WRONLY)
+                    amode = amode | O_WRONLY;
+                if (fd->access_mode & ADIO_RDWR)
+                    amode = amode | O_RDWR;
+                if (fd->access_mode & ADIO_EXCL)
+                    amode = amode | O_EXCL;
+                temp_sys = open(fd->filename, amode, perm);
+                lumlen = sizeof(struct lov_user_md) + 1000 * sizeof(struct lov_user_ost_data);
+                lum = (struct lov_user_md *) ADIOI_Calloc(1, lumlen);
+                memset(lum, 0, lumlen);
+                lum->lmm_magic = LOV_USER_MAGIC;
+                err = ioctl(temp_sys, LL_IOC_LOV_GETSTRIPE, (void *) lum);
+                close(temp_sys);
+
+                /*If cb_nodes has not been set by user or system, we set it to lustre striping factor (if the number of nodes is smaller). Otherwise default ROMIO can assign one aggregator per node.*/
+                if ( number_of_nodes < lum->lmm_stripe_count ){
+                    ADIOI_Info_get(users_info, "cb_nodes", MPI_MAX_INFO_VAL, value, &flag);
+                    if (!err && !flag) {
+                        sprintf(value,"%d",lum->lmm_stripe_count);
+                        ADIOI_Info_set(users_info, "cb_nodes", value);
+                    }
+                    /*If cb_config_list has not been set by user or system, we set it to dividing cb_nodes across all nodes*/
+                    ADIOI_Info_get(users_info, "cb_config_list", MPI_MAX_INFO_VAL, value, &flag);
+                    if (!err && !flag) {
+                        sprintf(value,"*:%d",(lum->lmm_stripe_count + number_of_nodes - 1)/number_of_nodes);
+                        ADIOI_Info_set(users_info, "cb_config_list", value);
+                    }
+                }
+                ADIOI_Free(lum);
             }
 
 

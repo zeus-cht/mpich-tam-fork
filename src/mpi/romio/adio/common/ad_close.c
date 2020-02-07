@@ -16,6 +16,20 @@ void ADIO_Close(ADIO_File fd, int *error_code)
     int i, j, k, combiner, myrank, err;
     static char myname[] = "ADIO_CLOSE";
 
+    /*TAM cleanup*/
+    if (fd->is_local_aggregator) {
+        ADIOI_Free(fd->aggregator_local_ranks);
+        ADIOI_Free(fd->local_send_size);
+        ADIOI_Free(fd->local_lens);
+        ADIOI_Free(fd->new_types);
+    }
+    ADIOI_Free(fd->req);
+    ADIOI_Free(fd->sts);
+    ADIOI_Free(fd->array_of_displacements);
+    ADIOI_Free(fd->array_of_blocklengths);
+    ADIOI_Free(fd->local_aggregators);
+    ADIOI_Free(fd->process_aggregator_list);
+
     if (fd->async_count) {
         *error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE,
                                            myname, __LINE__, MPI_ERR_IO, "**io",
