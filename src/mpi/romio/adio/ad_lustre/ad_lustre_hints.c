@@ -23,11 +23,11 @@ void ADIOI_LUSTRE_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
     int myrank;
     static char myname[] = "ADIOI_LUSTRE_SETINFO";
     /* These variables are for getting Lustre stripe count information */
-    int lumlen, err, number_of_nodes;
+    int lumlen, err, number_of_nodes, stripe_count = 0;
     FDTYPE temp_sys;
     int perm, old_mask, amode;
     struct lov_user_md *lum = NULL;
-
+    MPI_Comm_rank(fd->comm, &myrank);
 
 #ifdef HAVE_LUSTRE_LOCKAHEAD
     /* Set lock ahead default hints */
@@ -74,59 +74,6 @@ void ADIOI_LUSTRE_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
                 ADIOI_Info_set(fd->info, "romio_lustre_start_iodevice", value);
                 start_iodev = atoll(value);
             }
-
-            /* We set global aggregators automatically for user if hints are not specified.*/
-            /* number_of_nodes is a system info set by ad_open.c, we need to perform nullity check.*/
-            //Get Lustre file striping factor in advance. This information is not availabe until the actual open time.
-            //However, we need it for determining cb_nodes and cb_config_list. Hence we open and close the file at here.
-            if (fd->perm == ADIO_PERM_NULL) {
-                old_mask = umask(022);
-                umask(old_mask);
-                perm = old_mask ^ 0666;
-            } else{
-                perm = fd->perm;
-            }
-            amode = 0;
-            if (fd->access_mode & ADIO_CREATE)
-                amode = amode | O_CREAT;
-            if (fd->access_mode & ADIO_RDONLY)
-                amode = amode | O_RDONLY;
-            if (fd->access_mode & ADIO_WRONLY)
-                amode = amode | O_WRONLY;
-            if (fd->access_mode & ADIO_RDWR)
-                amode = amode | O_RDWR;
-            if (fd->access_mode & ADIO_EXCL)
-                amode = amode | O_EXCL;
-            temp_sys = open(fd->filename, amode, perm);
-            lumlen = sizeof(struct lov_user_md) + 1000 * sizeof(struct lov_user_ost_data);
-            lum = (struct lov_user_md *) ADIOI_Calloc(1, lumlen);
-            memset(lum, 0, lumlen);
-            lum->lmm_magic = LOV_USER_MAGIC;
-            err = ioctl(temp_sys, LL_IOC_LOV_GETSTRIPE, (void *) lum);
-            close(temp_sys);
-
-            /*If cb_nodes has not been set by user or system, we set it to lustre striping factor*/
-
-            ADIOI_Info_get(users_info, "cb_nodes", MPI_MAX_INFO_VAL, value, &flag);
-            if (!err && !flag) {
-                sprintf(value,"%d",lum->lmm_stripe_count);
-                ADIOI_Info_set(users_info, "cb_nodes", value);
-            }
-            //If cb_config_list has not been set by user or system, we set it to dividing cb_nodes across all nodes
-            ADIOI_Info_get(users_info, "cb_config_list", MPI_MAX_INFO_VAL, value, &flag);
-            if (!err && !flag) {
-                // number_of_nodes is a system info set by ad_open.c, we need to perform nullity check.
-                ADIOI_Info_get(users_info, "number_of_nodes", MPI_MAX_INFO_VAL, value, &flag);
-                if (flag) {
-                    number_of_nodes = atoi(value);
-                    sprintf(value,"*:%d",(lum->lmm_stripe_count + number_of_nodes - 1)/number_of_nodes);
-                    //printf("cb_config_list=%s\n",value);
-                    ADIOI_Info_set(users_info, "cb_config_list", value);
-                }
-            }
-            ADIOI_Free(lum);
-
-
 
             /* direct read and write */
             ADIOI_Info_get(users_info, "direct_read", MPI_MAX_INFO_VAL, value, &flag);
@@ -179,10 +126,69 @@ void ADIOI_LUSTRE_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
 #endif
         }
 
+        ADIOI_Info_get(users_info, "number_of_nodes", MPI_MAX_INFO_VAL, value, &flag);
+        /* Must be true for all processes (done in ad_open.c) */  
+        if (flag) {
+            number_of_nodes = atoi(value);
+            /* We set global aggregators automatically for user if hints are not specified.*/
+            /* number_of_nodes is a system info set by ad_open.c, we need to perform nullity check.*/
+            /*Get Lustre file striping factor in advance. This information is not availabe until the actual open time.
+            However, we need it for determining cb_nodes and cb_config_list. Hence we open and close the file at here.
+            rank 0 does the job and broadcast to other processes.*/
+            if (myrank == 0) {
+                if (fd->perm == ADIO_PERM_NULL) {
+                    old_mask = umask(022);
+                    umask(old_mask);
+                    perm = old_mask ^ 0666;
+                } else{
+                    perm = fd->perm;
+                }
+                amode = 0;
+                if (fd->access_mode & ADIO_CREATE)
+                    amode = amode | O_CREAT;
+                if (fd->access_mode & ADIO_RDONLY)
+                    amode = amode | O_RDONLY;
+                if (fd->access_mode & ADIO_WRONLY)
+                    amode = amode | O_WRONLY;
+                if (fd->access_mode & ADIO_RDWR)
+                    amode = amode | O_RDWR;
+                if (fd->access_mode & ADIO_EXCL)
+                    amode = amode | O_EXCL;
+                temp_sys = open(fd->filename, amode, perm);
+                lumlen = sizeof(struct lov_user_md) + 1000 * sizeof(struct lov_user_ost_data);
+                lum = (struct lov_user_md *) ADIOI_Calloc(1, lumlen);
+                memset(lum, 0, lumlen);
+                lum->lmm_magic = LOV_USER_MAGIC;
+                err = ioctl(temp_sys, LL_IOC_LOV_GETSTRIPE, (void *) lum);
+                stripe_count = (int) lum->lmm_stripe_count;
+                close(temp_sys);
+                ADIOI_Free(lum);
+            }
+        }
+        /* Broadcase stripe count */
+        MPI_Bcast( &stripe_count, 1, MPI_INT, 0, fd->comm );
+        if (users_info == NULL) {
+            printf("rank %d has no user info, should not happen!\n");
+        }
+        /* If cb_nodes has not been set by user or system, we set it to lustre striping factor
+           For some reasons, getting stripe count can give 0 even if it is not. In that case, we do not want to cause trouble, simply return.*/
 
+        if (stripe_count && users_info != NULL) {
+            ADIOI_Info_get(users_info, "cb_nodes", MPI_MAX_INFO_VAL, value, &flag);
+            if (!err && !flag) {
+                sprintf(value,"%d",stripe_count);
+                ADIOI_Info_set(users_info, "cb_nodes", value);
+            }
+            /* If cb_config_list has not been set by user or system, we set it to dividing cb_nodes across all nodes */
+            ADIOI_Info_get(users_info, "cb_config_list", MPI_MAX_INFO_VAL, value, &flag);
+            if (!err && !flag) {
+                /* number_of_nodes is a system info set by ad_open.c, we need to perform nullity check. */
+                sprintf(value,"*:%d",(stripe_count + number_of_nodes - 1)/number_of_nodes);
+                ADIOI_Info_set(users_info, "cb_config_list", value);
+            }
+        }
 
         /* set striping information with ioctl */
-        MPI_Comm_rank(fd->comm, &myrank);
         if (myrank == 0) {
             stripe_val[0] = str_factor;
             stripe_val[1] = str_unit;
