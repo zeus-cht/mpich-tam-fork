@@ -125,8 +125,10 @@ void ADIOI_LUSTRE_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
             }
 #endif
         }
-
-        ADIOI_Info_get(users_info, "number_of_nodes", MPI_MAX_INFO_VAL, value, &flag);
+        flag = 0;
+        if (users_info != MPI_INFO_NULL) {
+            ADIOI_Info_get(users_info, "number_of_nodes", MPI_MAX_INFO_VAL, value, &flag);
+        }
         /* Must be true for all processes (done in ad_open.c) */  
         if (flag) {
             number_of_nodes = atoi(value);
@@ -167,13 +169,13 @@ void ADIOI_LUSTRE_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
         }
         /* Broadcase stripe count */
         MPI_Bcast( &stripe_count, 1, MPI_INT, 0, fd->comm );
-        if (users_info == NULL) {
-            printf("rank %d has no user info, should not happen!\n");
+        if (users_info == MPI_INFO_NULL) {
+            printf("rank %d has no user info, should not happen!\n", myrank);
         }
         /* If cb_nodes has not been set by user or system, we set it to lustre striping factor
            For some reasons, getting stripe count can give 0 even if it is not. In that case, we do not want to cause trouble, simply return.*/
 
-        if (stripe_count && users_info != NULL) {
+        if (stripe_count && users_info != MPI_INFO_NULL) {
             ADIOI_Info_get(users_info, "cb_nodes", MPI_MAX_INFO_VAL, value, &flag);
             if (!err && !flag) {
                 sprintf(value,"%d",stripe_count);
