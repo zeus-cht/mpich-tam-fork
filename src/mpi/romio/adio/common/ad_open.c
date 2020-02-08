@@ -291,7 +291,7 @@ int aggregator_meta_information(int rank, int *process_node_list, int nprocs, in
             /*Mode 1: Build local aggregators on top of global aggregators*/
             if ( co2 > local_node_aggregator_size ){
                 temp2 = local_node_aggregator_size;
-                /* Go through all local processes. fill the local aggregator array up to the number of element co2*/
+                /* Go through all local processes. fill the local aggregator array up to the number of element co2 */
                 for ( j = 0; j < local_node_process_size; j++ ){
                     /* Make sure that the added ranks do not repeat with the exiting aggregator ranks*/
                     test = 1;
@@ -479,6 +479,7 @@ int additional_hint_print(ADIO_File fd, int nrecvs, int nprocs){
         printf("%d ",fd->hints->ranklist[i]);
     }
     printf("\n");
+    printf("key = %-25s value = %-10d\n", "number of nodes", nrecvs);
     printf("key = %-25s value = %-10d\n", "ROMIO_LOCAL_AGGREGATOR_CO", co);
     printf("key = %-25s value = ", "local aggregators");
     for ( i = 0; i < fd->local_aggregator_size; i++ ){
@@ -587,9 +588,19 @@ ADIO_File ADIO_Open(MPI_Comm orig_comm,
         if (ADIOI_syshints == MPI_INFO_NULL)
             MPI_Info_create(&ADIOI_syshints);
         ADIOI_process_system_hints(fd, ADIOI_syshints);
-        // The number of physical node is used to determine cb_nodes for lustre case
-        sprintf(key_val,"%d",nrecvs);
-        ADIOI_Info_set(ADIOI_syshints, "number_of_nodes", key_val);
+    }
+    // The number of physical node is used to determine cb_nodes for lustre case
+    sprintf(key_val,"%d",nrecvs);
+    ADIOI_Info_set(ADIOI_syshints, "number_of_nodes", key_val);
+    // Environmental setting for testing purpose with highest priority.
+    p=getenv("ROMIO_cb_nodes");
+    if (p!=NULL){
+        ADIOI_Info_set(ADIOI_syshints, "cb_nodes", p);
+    }
+
+    p=getenv("ROMIO_cb_config_list");
+    if (p!=NULL){
+        ADIOI_Info_set(ADIOI_syshints, "cb_config_list", p);
     }
 
     ADIOI_incorporate_system_hints(info, ADIOI_syshints, &dupinfo);
