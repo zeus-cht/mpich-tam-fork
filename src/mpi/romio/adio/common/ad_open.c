@@ -594,7 +594,8 @@ ADIO_File ADIO_Open(MPI_Comm orig_comm,
         ADIOI_process_system_hints(fd, ADIOI_syshints);
     }
     // The number of physical node is used to determine cb_nodes for lustre case
-    sprintf(key_val,"%d",nrecvs);
+    //sprintf(key_val,"%d",nrecvs);
+    MPL_snprintf(key_val, MPI_MAX_INFO_VAL + 1, "%d", nrecvs);
     ADIOI_Info_set(ADIOI_syshints, "number_of_nodes", key_val);
     // Environmental setting for testing purpose with highest priority.
     p=getenv("ROMIO_cb_nodes");
@@ -606,6 +607,9 @@ ADIO_File ADIO_Open(MPI_Comm orig_comm,
     if (p!=NULL){
         ADIOI_Info_set(ADIOI_syshints, "cb_config_list", p);
     }
+    /* For Lustre hints, we need to actually open the file before the colletive open function.
+     * We use the original access mode. If it does not work, we just forget about the hints. */
+    fd->access_mode = access_mode;
 
     ADIOI_incorporate_system_hints(info, ADIOI_syshints, &dupinfo);
     ADIO_SetInfo(fd, dupinfo, &err);
