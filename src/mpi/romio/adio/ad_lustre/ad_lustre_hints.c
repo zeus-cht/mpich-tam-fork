@@ -162,34 +162,37 @@ void ADIOI_LUSTRE_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
                 memset(lum, 0, lumlen);
                 lum->lmm_magic = LOV_USER_MAGIC;
                 err = ioctl(temp_sys, LL_IOC_LOV_GETSTRIPE, (void *) lum);
-                stripe_count = (int) lum->lmm_stripe_count;
+                if (err){
+                    stripe_count = 0;
+                } else {
+                    stripe_count = (int) lum->lmm_stripe_count;
+                }
                 close(temp_sys);
                 ADIOI_Free(lum);
+                printf("stripe count = %d\n",stripe_count);
             }
         }
         /* Broadcase stripe count */
         MPI_Bcast( &stripe_count, 1, MPI_INT, 0, fd->comm );
-        if (users_info == MPI_INFO_NULL) {
-            printf("rank %d has no user info, should not happen!\n", myrank);
-        }
         /* If cb_nodes has not been set by user or system, we set it to lustre striping factor
-           For some reasons, getting stripe count can give 0 even if it is not. In that case, we do not want to cause trouble, simply return.*/
+           For some reasons, getting stripe count can give 0 even if it is not. In that case, we do not want to cause trouble, simply jump the settings.*/
 
         if (stripe_count && users_info != MPI_INFO_NULL) {
             ADIOI_Info_get(users_info, "cb_nodes", MPI_MAX_INFO_VAL, value, &flag);
-            if (!err && !flag) {
+            if (!flag) {
                 sprintf(value,"%d",stripe_count);
                 ADIOI_Info_set(users_info, "cb_nodes", value);
+                //printf("rank %d set cb_nodes = %s\n",myrank,value);
             }
             /* If cb_config_list has not been set by user or system, we set it to dividing cb_nodes across all nodes */
             ADIOI_Info_get(users_info, "cb_config_list", MPI_MAX_INFO_VAL, value, &flag);
-            if (!err && !flag) {
+            if (!flag) {
                 /* number_of_nodes is a system info set by ad_open.c, we need to perform nullity check. */
                 sprintf(value,"*:%d",(stripe_count + number_of_nodes - 1)/number_of_nodes);
                 ADIOI_Info_set(users_info, "cb_config_list", value);
+                //printf("rank %d set cb_config_list = %s\n",myrank,value);
             }
         }
-
         /* set striping information with ioctl */
         if (myrank == 0) {
             stripe_val[0] = str_factor;

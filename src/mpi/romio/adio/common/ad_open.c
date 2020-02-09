@@ -101,65 +101,68 @@ int reorder_ranklist(int *process_node_list, int *ranklist, int cb_nodes, int nr
     ADIOI_Free(node_index);
     return 0;
 }
+
 /*
   Input:
        1. rank: process rank with respect to communicator comm.
        2. nprocs: total number of processes in the communicator comm.
        3. comm: a communicator comm that contains this process.
+       4. orig_comm: For some reason, ADIOI_cb_gather_name_array requires an extra communicator, we just give it.
   Output:
        1. nrecvs : An integer that tells how many nodes we have.
        2. process_node_list : An array (size nprocs) that maps a process to a node (the node index correspond to the order of global receivers)
 */
-int gather_node_information(int rank, int nprocs,int *nrecvs, int **process_node_list, MPI_Comm comm){
-    char *local_processor_name, **global_process_names, *temp, **unique_nodes;
-    int i,j, name_len;
-    /* The ranks of receivers are known at the beginning, the rest of code just simulate the operations for getting intra-node processes.
-     Get processes on the same compute node dynamically*/
-    local_processor_name = (char*) ADIOI_Calloc((MPI_MAX_PROCESSOR_NAME+1),sizeof(char));
-    global_process_names = (char**) ADIOI_Malloc(sizeof(char*)*nprocs);
-    global_process_names[0] = (char*) ADIOI_Malloc(sizeof(char) * (MPI_MAX_PROCESSOR_NAME+1) * nprocs);
-    for (i=1; i<nprocs; i++){
-        global_process_names[i] = global_process_names[i-1] + sizeof(char) * (MPI_MAX_PROCESSOR_NAME+1); 
-    }
-    /* Gather process names globally */
-    MPI_Get_processor_name( local_processor_name, &name_len);
-    MPI_Allgather(local_processor_name, (MPI_MAX_PROCESSOR_NAME+1), MPI_BYTE,
-                  global_process_names[0], (MPI_MAX_PROCESSOR_NAME+1), MPI_BYTE,
-                  comm);
-    temp=global_process_names[0];
-    /* Sort string names in order for counting unique number of strings. */
-    stringSort(global_process_names,nprocs);
-    /* Need to figure out how many nodes we have.*/
-    nrecvs[0] = nprocs;
-    /* Figure out total number of nodes and store into nrecvs */
-    for (i=1; i<nprocs; i++){
-        if (strcmp(global_process_names[i-1],global_process_names[i])==0){
-            nrecvs[0]--;
-        }
-    }
-    /* Figure out the name of all nodes (stored in unique nodes referencing the global process name) */
-    unique_nodes = (char**) ADIOI_Malloc(sizeof(char*) * nrecvs[0]);
-    unique_nodes[0] = global_process_names[0];
-    j=1;
-    for (i=1; i<nprocs; i++){
-        if (strcmp(global_process_names[i-1],global_process_names[i])!=0){
-            unique_nodes[j]=global_process_names[i];
-            j++;
-        }
-    }
-    process_node_list[0] = (int*) ADIOI_Malloc(sizeof(int) * nprocs);
-    /* Figure out which process is at with node using their names */
-    for (i=0; i<nrecvs[0]; i++){
-        for (j=0; j<nprocs; j++){
-            if (strcmp(temp+j*(MPI_MAX_PROCESSOR_NAME+1),unique_nodes[i])==0){
-                process_node_list[0][j] = i;
+int gather_node_information(int rank, int nprocs,int *nrecvs, int **process_node_list, MPI_Comm comm, MPI_Comm orig_comm){
+    ADIO_cb_name_array array;
+    char **global_process_names, **unique_nodes;
+    int i, j;
+    /* cb_config_list should have called this, we can just get the names stored in the communicator easily. */
+    ADIOI_cb_gather_name_array(orig_comm, comm, &array);
+    if ( rank == 0 ) {
+        global_process_names = (char**) ADIOI_Malloc(sizeof(char*) * nprocs);
+        memcpy(global_process_names, array->names, sizeof(char*) * nprocs);
+        /* Sort string names in order for counting the unique number of strings. */
+        stringSort(global_process_names,nprocs);
+        /* Need to figure out how many nodes we have.
+         * We do subtraction here. */
+        nrecvs[0] = nprocs;
+        /* Figure out total number of nodes and store into nrecvs */
+        for (i = 1; i < nprocs; i++) {
+            if (strcmp(global_process_names[i-1], global_process_names[i]) == 0) {
+                nrecvs[0]--;
             }
-        }   
+        }
+        /* Figure out the name of all nodes (stored in unique nodes referencing the global process name) */
+        unique_nodes = (char**) ADIOI_Malloc(sizeof(char*) * nrecvs[0]);
+        unique_nodes[0] = global_process_names[0];
+        j = 1;
+        for (i=1; i<nprocs; i++){
+            if (strcmp(global_process_names[i-1],global_process_names[i])!=0){
+                unique_nodes[j] = global_process_names[i];
+                j++;
+            }
+        }
+        process_node_list[0] = (int*) ADIOI_Malloc(sizeof(int) * (nprocs + 1));
+        process_node_list[0][nprocs] = nrecvs[0];
+        /* Figure out which process is at with node using their names */
+        for ( j = 0; j < nprocs; j++ ) {
+            for ( i = 0; i < nrecvs[0]; i++ ) {
+                if (strcmp(array->names[j], unique_nodes[i]) == 0) {
+                    process_node_list[0][j] = i;
+                    break;
+                }
+            }
+        }
+        ADIOI_Free(global_process_names);
+        ADIOI_Free(unique_nodes);
     }
-    ADIOI_Free(local_processor_name);
-    ADIOI_Free(global_process_names[0]);
-    ADIOI_Free(global_process_names);
-    ADIOI_Free(unique_nodes);
+    if (rank > 0) {
+        process_node_list[0] = (int*) ADIOI_Malloc(sizeof(int) * (nprocs + 1));
+    }
+    MPI_Bcast( process_node_list[0], nprocs + 1, MPI_INT, 0, comm );
+    /* The last (and extra) integer from the the process_node_list is the total number of nodes.
+     * It is broadcasted along with the process node list from rank 0. */
+    nrecvs[0] = process_node_list[0][nprocs];
     return 0;
 }
 
@@ -178,11 +181,11 @@ int spreadout_global_aggregators(int rank, int *process_node_list, int nprocs, i
         }
     }
     k = 0;
-    /* For every node*/
+    /* For every node */
     for ( i = 0; i < nrecvs; ++i ){
         local_node_process_size = 0;
         local_node_aggregator_size = 0;
-        /* Get process on the ith node and identify aggregators*/
+        /* Get process on the ith node and identify aggregators */
         for ( j = 0; j < nprocs; ++j ){
             if ( process_node_list[j] == i ) {
                 temp_local_ranks[local_node_process_size] = j;
@@ -222,7 +225,7 @@ int spreadout_global_aggregators(int rank, int *process_node_list, int nprocs, i
      5. global_aggregator_size: size of global_aggregators.
      6. global_aggregators: an array of all aggregators.
      7. co: number of local aggregators per node.
-     8 mode: 0: local aggregaotrs are evenly spreadout on a node, 1: local aggregators try to occupy the superset of global aggregators
+     8 mode: 0: local aggregators are evenly spreadout on a node. 1: local aggregators try to occupy the superset of global aggregators
   Output:
      1. is_aggregator_new: if this process is an aggregator in new context.
      2. local_aggregator_size: length of local_aggregators
@@ -582,7 +585,8 @@ ADIO_File ADIO_Open(MPI_Comm orig_comm,
     else
         syshints_processed = 1;
 
-    gather_node_information(rank, procs, &nrecvs, &process_node_list, fd->comm);
+    gather_node_information(rank, procs, &nrecvs, &process_node_list, fd->comm, orig_comm);
+
     MPI_Allreduce(&syshints_processed, &can_skip, 1, MPI_INT, MPI_MIN, fd->comm);
     if (!can_skip) {
         if (ADIOI_syshints == MPI_INFO_NULL)
