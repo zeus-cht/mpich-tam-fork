@@ -555,22 +555,25 @@ void ADIOI_LUSTRE_WriteStridedColl(ADIO_File fd, const void *buf, int count,
 
         int *count_my_req_per_proc, count_my_req_procs, count_others_req_procs;
         ADIO_Offset **buf_idx = NULL;
-
-        /*
-         * All processes that are not local aggregators has zero contig_access_count to enter to two-phase I/O.
-        */
-        gather_requests(myrank, nprocs, fd, buf, count,
-                        datatype, offset_list, len_list, contig_access_count,
-                        &srt_off, &srt_len, &total_contig_access_count,
-                        &derived_new_type, &local_buf);
-        /*
-         * we simly hack all two-phase I/O variables, so local aggregators pretend to be only processes with some data to write.
-         * len_list is allocated together with offset_list in March 19 2019 commit, see src/mpi/romio/adio/common/ad_write_coll.c */
-        ADIOI_Free(offset_list);
-        offset_list = srt_off;
-        len_list = srt_len;
-        contig_access_count = total_contig_access_count;
-        datatype = derived_new_type;
+        if ( fd->local_aggregator_size < nprocs ){
+            /*
+             * All processes that are not local aggregators has zero contig_access_count to enter to two-phase I/O.
+            */
+            gather_requests(myrank, nprocs, fd, buf, count,
+                            datatype, offset_list, len_list, contig_access_count,
+                            &srt_off, &srt_len, &total_contig_access_count,
+                            &derived_new_type, &local_buf);
+            /*
+             * we simly hack all two-phase I/O variables, so local aggregators pretend to be only processes with some data to write.
+             * len_list is allocated together with offset_list in March 19 2019 commit, see src/mpi/romio/adio/common/ad_write_coll.c */
+            ADIOI_Free(offset_list);
+            offset_list = srt_off;
+            len_list = srt_len;
+            contig_access_count = total_contig_access_count;
+            datatype = derived_new_type;
+        } else{
+            local_buf = (char*) buf;
+        }
 
         /* Calculate what portions of this process's write requests that fall
          * into the file domains of each I/O aggregator.  No inter-process
@@ -606,7 +609,7 @@ void ADIOI_LUSTRE_WriteStridedColl(ADIO_File fd, const void *buf, int count,
                                     others_req, my_req, offset_list, len_list,
                                     min_st_loc, max_end_loc,
                                     contig_access_count, striping_info, buf_idx, error_code);
-        if( fd->is_local_aggregator ){
+        if( fd->is_local_aggregator && fd->local_aggregator_size < nprocs ){
             ADIOI_Free(local_buf);
         }
         /* free all memory allocated */
