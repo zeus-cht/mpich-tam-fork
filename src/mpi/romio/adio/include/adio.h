@@ -235,6 +235,7 @@ typedef struct ADIOI_FileD {
     /* External32 */
     int is_external32;          /* bool:  0 means native view */
 
+
 } ADIOI_FileD;
 
 typedef struct ADIOI_FileD *ADIO_File;

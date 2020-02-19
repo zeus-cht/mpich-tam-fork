@@ -7,6 +7,69 @@
 
 #include "adio.h"
 
+static unsigned int xorshift_rand2(void)
+{
+    /* time returns long; keep the lower and most significant 32 bits */
+    unsigned int val = time(NULL) & 0xffffffff;
+
+    /* Marsaglia's xorshift random number generator */
+    val ^= val << 13;
+    val ^= val >> 17;
+    val ^= val << 5;
+
+    return val;
+}
+
+
+void MPL_create_pathname(char *dest_filename, const char *dirname,
+                         const char *prefix, const int is_dir)
+{
+    /* Generate a random number which doesn't interfere with user application */
+    const unsigned int rdm = xorshift_rand2();
+    const unsigned int pid = (unsigned int) getpid();
+
+    if (dirname) {
+        MPL_snprintf(dest_filename, PATH_MAX, "%s/%s.%u.%u%c", dirname, prefix,
+                     rdm, pid, is_dir ? '/' : '\0');
+    } else {
+        MPL_snprintf(dest_filename, PATH_MAX, "%s.%u.%u%c", prefix, rdm, pid, is_dir ? '/' : '\0');
+    }
+}
+
+
+int MPL_strnapp(char *dest, const char *src, size_t n)
+{
+    char *restrict d_ptr = dest;
+    const char *restrict s_ptr = src;
+    register int i;
+
+    /* Get to the end of dest */
+    i = (int) n;
+    while (i-- > 0 && *d_ptr)
+        d_ptr++;
+    if (i <= 0)
+        return 1;
+
+    /* Append.  d_ptr points at first null and i is remaining space. */
+    while (*s_ptr && i-- > 0) {
+        *d_ptr++ = *s_ptr++;
+    }
+
+    /* We allow i >= (not just >) here because the first while decrements
+     * i by one more than there are characters, leaving room for the null */
+    if (i >= 0) {
+        *d_ptr = 0;
+        return 0;
+    } else {
+        /* Force the null at the end */
+        *--d_ptr = 0;
+
+        /* We may want to force an error message here, at least in the
+         * debugging version */
+        return 1;
+    }
+}
+
 /* The following function selects the name of the file to be used to
    store the shared file pointer. The shared-file-pointer file is a
    hidden file in the same directory as the real file being accessed.
