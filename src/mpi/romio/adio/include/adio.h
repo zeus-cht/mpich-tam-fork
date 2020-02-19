@@ -233,6 +233,29 @@ typedef struct ADIOI_FileD {
     /* External32 */
     int is_external32;          /* bool:  0 means native view */
 
+
+    /* Hint variables used by TAM */
+    int nprocs_aggregator;
+    int local_aggregator_size;
+    int is_local_aggregator;
+    int *aggregator_local_ranks;
+    int *local_aggregators;
+    int my_local_aggregator;
+    MPI_Request *req;
+    MPI_Status *sts;
+    MPI_Aint *global_recv_size;
+    MPI_Aint *local_lens;
+    int *local_send_size;
+    int* array_of_blocklengths;
+    MPI_Aint* array_of_displacements;
+    MPI_Datatype* new_types;
+    char* local_buf;
+    size_t local_buf_size;
+    int *cb_send_size;
+    int **local_aggregator_domain;
+    int *local_aggregator_domain_size;
+    int global_aggregator_index;
+
     /* see file adio/common/onesided_aggregation.c for descriptions of the next 6 members */
     int romio_write_aggmethod;
     int romio_read_aggmethod;
