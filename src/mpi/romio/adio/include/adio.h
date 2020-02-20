@@ -233,28 +233,80 @@ typedef struct ADIOI_FileD {
     /* External32 */
     int is_external32;          /* bool:  0 means native view */
 
+    MPI_Comm signal_comm;              /* communicator duplicated from comm*/
 
-    /* Hint variables used by TAM */
-    int nprocs_aggregator;
     int local_aggregator_size;
-    int is_local_aggregator;
-    int *aggregator_local_ranks;
-    int *local_aggregators;
-    int my_local_aggregator;
-    MPI_Request *req;
-    MPI_Status *sts;
-    MPI_Aint *global_recv_size;
-    MPI_Aint *local_lens;
-    int *local_send_size;
-    int* array_of_blocklengths;
-    MPI_Aint* array_of_displacements;
-    MPI_Datatype* new_types;
-    char* local_buf;
-    size_t local_buf_size;
-    int *cb_send_size;
-    int **local_aggregator_domain;
-    int *local_aggregator_domain_size;
-    int global_aggregator_index;
+
+    int comm_limit;
+    int alltoall_type_write;
+    int aggregator_index;
+    int try_barrier;    
+
+    MPI_Count data_send_count;
+    MPI_Count data_recv_count;
+    MPI_Count read_data_send_count;
+    MPI_Count read_data_recv_count;
+    MPI_Count meta_send_count;
+    MPI_Count meta_recv_count;
+    MPI_Count local_request_count;
+    MPI_Count gathered_request_count;
+
+    MPI_Count merged_request;
+    MPI_Count total_request;
+
+    double calc_offset_time;
+
+    double total_inter_time;
+    double inter_heap_time;
+    double inter_type_time;
+    double inter_unpack_time;
+    double inter_ds_time;
+    double inter_wait_time;
+
+    double calc_my_request_time;
+    double calc_other_request_time;
+    double calc_other_request_all_to_all_time;
+    double calc_other_request_post_send_time;
+    double calc_other_request_wait_time ;
+
+    double total_intra_time;
+    double intra_memcpy_time;
+    double intra_type_time;
+    double intra_heap_time;
+    double intra_wait_offset_time;
+    double intra_wait_data_time;
+
+    double io_time;
+
+    double exchange_write_time;
+
+    double total_time;
+
+    double read_total_intra_time;
+    double read_intra_memcpy_time;
+    double read_intra_type_time;
+    double read_intra_heap_time;
+    double read_intra_wait_offset_time;
+    double read_intra_wait_data_time;
+    
+    double read_calc_offset_time;
+    double read_calc_my_request_time;
+    double read_calc_other_request_time;
+    double read_calc_file_domain_time;
+
+    double read_exchange_write_time;
+
+    double read_inter_type_time;
+    double read_inter_wait_time;
+    double read_total_inter_time;
+
+    double read_total_time;
+    double read_io_time;
+
+    int ntimes;
+    int read_ntimes;
+
+    int first_cycle_send;
 
     /* see file adio/common/onesided_aggregation.c for descriptions of the next 6 members */
     int romio_write_aggmethod;

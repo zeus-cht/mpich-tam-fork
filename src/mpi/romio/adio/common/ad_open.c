@@ -445,14 +445,6 @@ int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, in
     int *global_aggregators_new, i;
     int co;
 
-    /*TAM rank list preparation*/
-    p=getenv("ROMIO_LOCAL_AGGREGATOR_CO");
-    if (p==NULL){
-        co = (ROMIO_TOTAL_LOCAL_AGGREGATOR_DEFAULT + nrecvs - 1) / nrecvs;
-    } else{
-        co = atoi(p);
-    }
-
     /* We spreadout the global aggregators within a node (keeping the same number of global aggregators per node)*/
     spreadout_global_aggregators(rank, process_node_list, nprocs, nrecvs, fd->hints->cb_nodes, fd->hints->ranklist, &global_aggregators_new);
     if (fd->hints->cb_nodes > 0){
@@ -466,76 +458,110 @@ int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, in
     /* Reorder the array of global aggregators according to node robin style*/
     reorder_ranklist(process_node_list, fd->hints->ranklist, fd->hints->cb_nodes, nrecvs, fd->info);
 
-    /* Construct arrays required by TAM */
-    aggregator_meta_information(rank, process_node_list, nprocs, nrecvs, fd->hints->cb_nodes, fd->hints->ranklist, co, &(fd->is_local_aggregator), &(fd->local_aggregator_size), &(fd->local_aggregators), &(fd->nprocs_aggregator), &(fd->aggregator_local_ranks), &(fd->local_aggregator_domain), &(fd->local_aggregator_domain_size), &(fd->my_local_aggregator), 0);
-
-    /* Prepare TAM temporary variables. (so they are used later without repeated mallocs.) */
-    fd->local_buf = NULL;
-    fd->local_buf_size = 0;
-    fd->cb_send_size = (int*) ADIOI_Malloc(sizeof(int) * fd->hints->cb_nodes);
-
-    if (fd->is_local_aggregator||fd->is_agg){
-        i = 0;
-        if (fd->is_agg){
-            /* Workout my global aggregator index, works the same as cb_node_index */
-            for ( i = 0; i < fd->hints->cb_nodes; ++i ) {
-                if (fd->hints->ranklist[i] == rank) {
-                    fd->global_aggregator_index = i;
-                    break;
-                }
+    /* Timers and environmental variables */
+    if (fd->is_agg){
+        for ( i = 0; i < fd->hints->cb_nodes; ++i ){
+            if (rank == fd->hints->ranklist[i]){
+                fd->aggregator_index = i;
+                break;
             }
-            fd->global_recv_size = (MPI_Aint*) ADIOI_Malloc(sizeof(MPI_Aint) * fd->local_aggregator_size);
-            i += fd->local_aggregator_size;
         }
-        if (fd->is_local_aggregator){
-            /* Used when local aggregators send data to global aggregators 
-             * Wrap data to he same destination all at once. */
-            fd->array_of_displacements = (MPI_Aint*) ADIOI_Malloc(fd->nprocs_aggregator * sizeof(MPI_Aint));
-            fd->array_of_blocklengths = (int*) ADIOI_Malloc(fd->nprocs_aggregator * sizeof(int));
-            fd->new_types = (MPI_Datatype*) ADIOI_Malloc(fd->hints->cb_nodes * sizeof(MPI_Datatype));
-            /* Used to store prefix-sum (inclusive) of local_send_size, we want to be extra careful to not to overflow integers. */
-            fd->local_lens = (MPI_Aint*) ADIOI_Malloc(sizeof(MPI_Aint) * nprocs * fd->nprocs_aggregator);
-            fd->local_send_size = (int*) ADIOI_Malloc(sizeof(int) * fd->hints->cb_nodes * fd->nprocs_aggregator);
-            i += fd->hints->cb_nodes;
-        }
-        /* status and request variables used by TAM, we malloc once.
-         * The size is either maximum inter-node or intra-node communication size, depending on which is larger. */
-        if (fd->nprocs_aggregator > i && fd->is_local_aggregator){
-            fd->req = (MPI_Request *) ADIOI_Malloc((fd->nprocs_aggregator + 1) * sizeof(MPI_Request));
-            fd->sts = (MPI_Status *) ADIOI_Malloc((fd->nprocs_aggregator + 1) * sizeof(MPI_Status));
-        } else{
-            fd->req = (MPI_Request *) ADIOI_Malloc((i + 1) * sizeof(MPI_Request));
-            fd->sts = (MPI_Status *) ADIOI_Malloc((i + 1) * sizeof(MPI_Status));
-        }
-    } else{
-        fd->req = (MPI_Request *) ADIOI_Malloc(sizeof(MPI_Request));
-        fd->sts = (MPI_Status *) ADIOI_Malloc(sizeof(MPI_Status));
     }
+    fd->local_aggregator_size = nprocs;
+
+    MPI_Comm_dup(fd->comm, &(fd->signal_comm));
+    p=getenv("ROMIO_COMM_LIMIT");
+    if (p==NULL){
+        fd->comm_limit = nprocs + 1000;
+    } else{
+        fd->comm_limit = atoi(p);
+    }
+    p=getenv("ROMIO_COMM_TYPE");
+    if (p==NULL){
+        fd->alltoall_type_write = 0;
+    } else{
+        fd->alltoall_type_write = atoi(p);
+    }
+    p=getenv("ROMIO_BARRIER");
+    if (p==NULL){
+        fd->try_barrier = 1;
+    } else{
+        fd->try_barrier = atoi(p);
+    }
+
+    fd->meta_send_count = 0;
+    fd->meta_recv_count = 0;
+    fd->data_send_count = 0;
+    fd->data_recv_count = 0;
+    fd->read_data_send_count = 0;
+    fd->read_data_recv_count = 0;
+    fd->local_request_count = 0;
+    fd->gathered_request_count = 0;
+    fd->ntimes = 0;
+
+    fd->calc_offset_time = 0;
+
+    fd->total_inter_time = 0;
+    fd->inter_heap_time = 0;
+    fd->inter_type_time = 0;
+    fd->inter_ds_time = 0;
+    fd->inter_wait_time = 0;
+    fd->inter_unpack_time = 0;
+
+    fd->calc_my_request_time = 0;
+    fd->calc_other_request_time = 0;
+    fd->calc_other_request_all_to_all_time = 0;
+    fd->calc_other_request_post_send_time = 0;
+    fd->calc_other_request_wait_time = 0;
+
+    fd->total_intra_time = 0;
+    fd->intra_memcpy_time = 0;
+    fd->intra_type_time = 0;
+    fd->intra_heap_time = 0;
+    fd->intra_wait_offset_time = 0;
+    fd->intra_wait_data_time = 0;
+
+    fd->io_time = 0;
+
+    fd->exchange_write_time = 0;
+    fd->total_time = 0;
+
+    fd->read_total_intra_time = 0;
+    fd->read_intra_memcpy_time = 0;
+    fd->read_intra_type_time = 0;
+    fd->read_intra_heap_time = 0;
+    fd->read_intra_wait_offset_time = 0;
+    fd->read_intra_wait_data_time = 0;
+
+    fd->read_calc_offset_time = 0;
+    fd->read_calc_my_request_time = 0;
+    fd->read_calc_other_request_time = 0;
+
+    fd->read_calc_file_domain_time = 0;
+
+    fd->read_exchange_write_time = 0;
+
+    fd->read_total_inter_time = 0;
+    fd->read_inter_type_time = 0;
+    fd->read_inter_wait_time = 0;
+
+    fd->read_total_time = 0;
+    fd->read_io_time = 0;
+    fd->read_ntimes = 0;
+
     return 0;
 }
 
 int additional_hint_print(ADIO_File fd, int nrecvs, int nprocs){
-    char *p;
-    int i, co;
+    int i;
     /*TAM hints print out, we print a full list of global aggregators again here.*/
 
-    p=getenv("ROMIO_LOCAL_AGGREGATOR_CO");
-    if (p==NULL){
-        co = (ROMIO_TOTAL_LOCAL_AGGREGATOR_DEFAULT + nrecvs - 1) / nrecvs;
-    } else{
-        co = atoi(p);
-    }
     printf("key = %-25s value = ", "global aggregators");
     for ( i = 0; i < fd->hints->cb_nodes; i++ ){
         printf("%d ",fd->hints->ranklist[i]);
     }
     printf("\n");
     printf("key = %-25s value = %-10d\n", "number of nodes", nrecvs);
-    printf("key = %-25s value = %-10d\n", "ROMIO_LOCAL_AGGREGATOR_CO", co);
-    printf("key = %-25s value = ", "local aggregators");
-    for ( i = 0; i < fd->local_aggregator_size; i++ ){
-        printf("%d ",fd->local_aggregators[i]);
-    }
     printf("\n");
     return 0;
 }

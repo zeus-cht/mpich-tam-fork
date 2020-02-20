@@ -100,7 +100,7 @@ int ADIOI_Calc_aggregator(ADIO_File fd,
     if (rank_index >= fd->hints->cb_nodes || rank_index < 0) {
         FPRINTF(stderr,
                 "Error in ADIOI_Calc_aggregator(): rank_index(%d) >= fd->hints->cb_nodes (%d) fd_size=%lld off=%lld\n",
-                rank_index, fd->hints->cb_nodes, (long long) fd_size, (long long) off);
+                rank_index, fd->hints->cb_nodes, fd_size, off);
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
 
@@ -405,7 +405,7 @@ void ADIOI_Calc_my_req(ADIO_File fd, ADIO_Offset * offset_list, ADIO_Offset * le
             FPRINTF(stdout, "data needed from %d (count = %d):\n", i, my_req[i].count);
             for (l = 0; l < my_req[i].count; l++) {
                 FPRINTF(stdout, "   off[%d] = %lld, len[%d] = %d\n", l,
-                        (long long) my_req[i].offsets[l], l, (long long) my_req[i].lens[l]);
+                        my_req[i].offsets[l], l, my_req[i].lens[l]);
             }
             FPRINTF(stdout, "buf_idx[%d] = 0x%x\n", i, buf_idx[i]);
         }
@@ -442,16 +442,15 @@ void ADIOI_Calc_others_req(ADIO_File fd, int count_my_req_procs,
     size_t memLen;
     ADIO_Offset *ptr;
     MPI_Aint *mem_ptrs;
-
+    double start;
 /* first find out how much to send/recv and from/to whom */
 #ifdef AGGREGATION_PROFILE
     MPE_Log_event(5026, 0, NULL);
 #endif
+    start = MPI_Wtime();
     count_others_req_per_proc = (int *) ADIOI_Malloc(nprocs * sizeof(int));
-
     MPI_Alltoall(count_my_req_per_proc, 1, MPI_INT,
                  count_others_req_per_proc, 1, MPI_INT, fd->comm);
-
     *others_req_ptr = (ADIOI_Access *) ADIOI_Malloc(nprocs * sizeof(ADIOI_Access));
     others_req = *others_req_ptr;
 
@@ -478,33 +477,32 @@ void ADIOI_Calc_others_req(ADIO_File fd, int count_my_req_procs,
             others_req[i].count = 0;
     }
     ADIOI_Free(count_others_req_per_proc);
-
 /* now send the calculated offsets and lengths to respective processes */
-
     requests = (MPI_Request *)
         ADIOI_Malloc(1 + (count_my_req_procs + count_others_req_procs) * sizeof(MPI_Request));
 /* +1 to avoid a 0-size malloc */
-
+    fd->calc_other_request_all_to_all_time += MPI_Wtime() - start;
+    start = MPI_Wtime();
     j = 0;
     for (i = 0; i < nprocs; i++) {
-        if (others_req[i].count == 0)
-            continue;
-        if (i == myrank)
-            /* send to self uses memcpy()C, here others_req[i].count == my_req[i].count */
-            memcpy(others_req[i].offsets, my_req[i].offsets,
-                   2 * my_req[i].count * sizeof(ADIO_Offset));
-        else
+        if (others_req[i].count) {
             MPI_Irecv(others_req[i].offsets, 2 * others_req[i].count,
                       ADIO_OFFSET, i, i + myrank, fd->comm, &requests[j++]);
-    }
-
-    for (i = 0; i < nprocs; i++) {
-        if (my_req[i].count && i != myrank) {
-            MPI_Isend(my_req[i].offsets, 2 * my_req[i].count,
-                      ADIO_OFFSET, i, i + myrank, fd->comm, &requests[j++]);
+            fd->gathered_request_count += others_req[i].count;
+            fd->meta_recv_count++;
         }
     }
 
+    for (i = 0; i < nprocs; i++) {
+        if (my_req[i].count) {
+            MPI_Issend(my_req[i].offsets, 2 * my_req[i].count,
+                      ADIO_OFFSET, i, i + myrank, fd->comm, &requests[j++]);
+            fd->local_request_count += my_req[i].count;
+            fd->meta_send_count++;
+        }
+    }
+    fd->calc_other_request_post_send_time += MPI_Wtime() - start;
+    start = MPI_Wtime();
     if (j) {
 #ifdef MPI_STATUSES_IGNORE
         MPI_Waitall(j, requests, MPI_STATUSES_IGNORE);
@@ -514,7 +512,7 @@ void ADIOI_Calc_others_req(ADIO_File fd, int count_my_req_procs,
         ADIOI_Free(statuses);
 #endif
     }
-
+    fd->calc_other_request_wait_time += MPI_Wtime() - start;
     ADIOI_Free(requests);
 
     *count_others_req_procs_ptr = count_others_req_procs;
