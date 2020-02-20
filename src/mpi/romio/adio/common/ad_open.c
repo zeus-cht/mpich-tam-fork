@@ -446,17 +446,21 @@ int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, in
     int co;
 
     /* We spreadout the global aggregators within a node (keeping the same number of global aggregators per node)*/
+/*
     spreadout_global_aggregators(rank, process_node_list, nprocs, nrecvs, fd->hints->cb_nodes, fd->hints->ranklist, &global_aggregators_new);
     if (fd->hints->cb_nodes > 0){
         ADIOI_Free(fd->hints->ranklist);
     }
+*/
     /* Need to update some global variables.*/
-    fd->hints->ranklist = global_aggregators_new;
-    fd->my_cb_nodes_index = -2;
-    fd->is_agg = is_aggregator(rank, fd);
+    //fd->hints->ranklist = global_aggregators_new;
 
     /* Reorder the array of global aggregators according to node robin style*/
     reorder_ranklist(process_node_list, fd->hints->ranklist, fd->hints->cb_nodes, nrecvs, fd->info);
+
+    fd->my_cb_nodes_index = -2;
+    fd->is_agg = is_aggregator(rank, fd);
+
 
     /* Timers and environmental variables */
     if (fd->is_agg){
