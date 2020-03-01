@@ -792,6 +792,7 @@ int all_to_many_original(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
                           MPI_Datatype *rdtypes, int rank, int procs, ADIO_File fd, MPI_Status *statuses,
                           MPI_Request *requests, int isagg){
     int i, j;
+
     j = 0;
     for (i = 0; i < procs; ++i) {
         if (recv_size[i]){
@@ -814,6 +815,7 @@ int all_to_many_simple(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
                           MPI_Datatype *rdtypes, int rank, int procs, ADIO_File fd, MPI_Status *statuses,
                           MPI_Request *requests, int isagg){
     int i, j;
+
     j = 0;
     for (i = 0; i < procs; ++i) {
         /* do the communication -- post ss sends and receives: */
@@ -836,6 +838,7 @@ int all_to_many_scatter(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
                           MPI_Request *requests, int isagg){
     int i, j, ii, ss, bblock, dst;
     int comm_size = fd->comm_limit;
+
     if (comm_size > procs){
         comm_size = procs;
     }
@@ -865,7 +868,6 @@ int all_to_many_scatter(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
             MPI_Waitall(j, requests, statuses);
         }
     }
-
 }
 
 int all_to_many_balanced_control(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
@@ -878,6 +880,7 @@ int all_to_many_balanced_control(char **send_buf, int *send_size, MPI_Datatype *
     int *rank_list = fd->hints->ranklist;
     int myindex = fd->aggregator_index;
     int ceiling, floor, remainder, send_start;
+
     if (comm_size > procs){
         comm_size = procs;
     }
@@ -945,19 +948,48 @@ int all_to_many_balanced_control(char **send_buf, int *send_size, MPI_Datatype *
             MPI_Waitall(j, requests, statuses);
         }
     }
-
 }
 
+/*
+ * We want to know who is receiving data in this iteration for better performance.
+ * Everyone gather the tag if it is a global aggregator and perform a huge allgather.
+*/
+/*
+int gather_global_aggregators(ADIO_File fd, int rank, int nprocs, int isagg, int* cb_nodes, int *aggregator_index) {
+    int i;
+    MPI_Allgather(&isagg, 1, MPI_INT,
+                  fd->nprocs_temp_buffer, 1, MPI_INT,
+                  fd->comm);
+    cb_nodes[0] = 0;
+    for ( i = 0; i < nprocs; ++i ) {
+        if (fd->nprocs_temp_buffer[i]) {
+            fd->global_aggregators[cb_nodes[0]] = i;
+            if (rank == i) {
+                aggregator_index[0] = cb_nodes[0];
+            }
+            cb_nodes[0]++;
+        }
+    }
+}
+*/
 int all_to_many_balanced(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
                           char *recv_buf, int *recv_size, int *rdispls,
                           MPI_Datatype *rdtypes, int rank, int procs, ADIO_File fd, MPI_Status *statuses,
                           MPI_Request *requests, int isagg){
     int i, j, k, x, temp;
     int comm_size = fd->comm_limit;
-    int cb_nodes = fd->hints->cb_nodes;
-    int *rank_list = fd->hints->ranklist;
-    int myindex = fd->aggregator_index;
+    int cb_nodes;
+    int *rank_list;
+    int myindex;
     int ceiling, floor, remainder, send_start;
+/*
+    gather_global_aggregators(fd, rank, procs, isagg, &cb_nodes, &myindex); 
+*/
+    myindex = fd->aggregator_index;
+    cb_nodes = fd->hints->cb_nodes;
+    rank_list = fd->global_aggregators;
+
+
     if (comm_size > procs){
         comm_size = procs;
     }
@@ -1020,7 +1052,6 @@ int all_to_many_balanced(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
             MPI_Waitall(j, requests, statuses);
         }
     }
-
 }
 
 static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
@@ -1070,11 +1101,14 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
     for (i = 0; i < nprocs; i++) {
         *srt_num += recv_count[i];
         sum_recv += recv_size[i];
-        if (recv_size[i])
+        if (recv_size[i]) {
             nprocs_recv++;
+            fd->data_recv_count += 1;
+        }
         if (send_size[i]) {
             nprocs_send++;
             send_total_size += send_size[i];
+            fd->data_send_count += 1;
         }
     }
 
@@ -1162,10 +1196,6 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
         #endif
     }
 
-    #if QIAO_DEBUG == 1
-    comm_time = MPI_Wtime();
-    #endif
-
     /* It is possible sum_recv (sum of message sizes to be received) is larger
      * than the size of collective buffer, write_buf, if writes from multiple
      * remote processes overlap. Receiving messages into overlapped regions of
@@ -1209,6 +1239,9 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
 #endif
 
     if (fd->atomicity) {
+        #if QIAO_DEBUG == 1
+        comm_time = MPI_Wtime();
+        #endif
         /* atomicity uses traditional two-phase I/O communication strategy */
         /* nreqs is the number of Issend and Irecv to be posted */
         nreqs = 0;
@@ -1277,6 +1310,9 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
             ADIOI_Free(send_buf);
         }
         ADIOI_Free(requests);
+        #if QIAO_DEBUG == 1
+        fd->inter_wait_time += MPI_Wtime()-comm_time;
+        #endif
     } else {
         requests = (MPI_Request *) ADIOI_Malloc((nprocs_send + nprocs_recv * 2 + 1) *
                                                 sizeof(MPI_Request));
@@ -1327,6 +1363,10 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
             MPI_Barrier(fd->comm);
         }
         /* End of buffer preparation */
+
+        #if QIAO_DEBUG == 1
+        comm_time = MPI_Wtime();
+        #endif
         switch (fd->alltoall_type_write){
             case 0: {
                 if (buftype_is_contig) {
@@ -1395,12 +1435,21 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
                 break;
             }
         }
+        #if QIAO_DEBUG == 1
+        fd->inter_wait_time += MPI_Wtime()-comm_time;
+        #endif
+        #if QIAO_DEBUG == 1
+        comm_time = MPI_Wtime();
+        #endif
         for ( i = 0; i < nprocs; ++i ) {
             if (recv_size[i]) {
                 MEMCPY_UNPACK(i, recv_buf_ptr);
             }
             recv_buf_ptr += recv_size[i];
         }
+        #if QIAO_DEBUG == 1
+        fd->inter_unpack_time += MPI_Wtime()-comm_time;
+        #endif
         ADIOI_Free(dtypes);
         ADIOI_Free(sdispls);
         if (buftype_is_contig) {
@@ -1410,9 +1459,6 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
             ADIOI_Free(send_buf);
         }
     }
-    #if QIAO_DEBUG == 1
-    fd->inter_wait_time += MPI_Wtime()-comm_time;
-    #endif
 #ifndef MPI_STATUSES_IGNORE
     ADIOI_Free(statuses);
 #endif

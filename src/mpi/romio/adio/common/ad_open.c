@@ -443,26 +443,9 @@ int aggregator_meta_information(int rank, int *process_node_list, int nprocs, in
 int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, int nprocs){
     char *p;
     int *global_aggregators_new, i;
-    int co;
-
-    /* We spreadout the global aggregators within a node (keeping the same number of global aggregators per node)*/
-/*
-    spreadout_global_aggregators(rank, process_node_list, nprocs, nrecvs, fd->hints->cb_nodes, fd->hints->ranklist, &global_aggregators_new);
-    if (fd->hints->cb_nodes > 0){
-        ADIOI_Free(fd->hints->ranklist);
-    }
-*/
-    /* Need to update some global variables.*/
-    //fd->hints->ranklist = global_aggregators_new;
-
-    /* Reorder the array of global aggregators according to node robin style*/
-    reorder_ranklist(process_node_list, fd->hints->ranklist, fd->hints->cb_nodes, nrecvs, fd->info);
-
-    fd->my_cb_nodes_index = -2;
-    fd->is_agg = is_aggregator(rank, fd);
-
-
-    /* Timers and environmental variables */
+    fd->global_aggregators = (int*) ADIOI_Malloc(sizeof(int)*fd->hints->cb_nodes);
+    memcpy(fd->global_aggregators, fd->hints->ranklist, fd->hints->cb_nodes * sizeof(int));
+    fd->aggregator_index = -1;
     if (fd->is_agg){
         for ( i = 0; i < fd->hints->cb_nodes; ++i ){
             if (rank == fd->hints->ranklist[i]){
@@ -471,6 +454,25 @@ int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, in
             }
         }
     }
+    //fd->nprocs_temp_buffer = (int*) ADIOI_Malloc(sizeof(int)*nprocs);
+    /* We spreadout the global aggregators within a node (keeping the same number of global aggregators per node)*/
+/*
+    spreadout_global_aggregators(rank, process_node_list, nprocs, nrecvs, fd->hints->cb_nodes, fd->hints->ranklist, &global_aggregators_new);
+    if (fd->hints->cb_nodes > 0){
+        ADIOI_Free(fd->hints->ranklist);
+    }
+    fd->hints->ranklist = global_aggregators_new;
+*/
+    /* Need to update some global variables.*/
+
+    /* Reorder the array of global aggregators according to node robin style*/
+    reorder_ranklist(process_node_list, fd->hints->ranklist, fd->hints->cb_nodes, nrecvs, fd->info);
+
+    //fd->my_cb_nodes_index = -2;
+    //fd->is_agg = is_aggregator(rank, fd);
+
+
+    /* Timers and environmental variables */
     fd->local_aggregator_size = nprocs;
 
     MPI_Comm_dup(fd->comm, &(fd->signal_comm));
@@ -482,13 +484,13 @@ int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, in
     }
     p=getenv("ROMIO_COMM_TYPE");
     if (p==NULL){
-        fd->alltoall_type_write = 0;
+        fd->alltoall_type_write = 1;
     } else{
         fd->alltoall_type_write = atoi(p);
     }
     p=getenv("ROMIO_BARRIER");
     if (p==NULL){
-        fd->try_barrier = 1;
+        fd->try_barrier = 0;
     } else{
         fd->try_barrier = atoi(p);
     }
@@ -559,8 +561,10 @@ int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, in
 int additional_hint_print(ADIO_File fd, int nrecvs, int nprocs){
     int i;
     /*TAM hints print out, we print a full list of global aggregators again here.*/
-
-    printf("key = %-25s value = ", "global aggregators");
+    printf("key = %-25s value = %-10d\n", "comm type", fd->alltoall_type_write);
+    printf("key = %-25s value = %-10d\n", "comm limit", fd->comm_limit);
+    printf("key = %-25s value = %-10d\n", "try  barrier", fd->try_barrier);
+    printf("key = %-25s value = ", "global aggregators");    
     for ( i = 0; i < fd->hints->cb_nodes; i++ ){
         printf("%d ",fd->hints->ranklist[i]);
     }

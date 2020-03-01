@@ -236,6 +236,8 @@ typedef struct ADIOI_FileD {
     MPI_Comm signal_comm;              /* communicator duplicated from comm*/
 
     int local_aggregator_size;
+    int *global_aggregators;
+    //int *nprocs_temp_buffer;
 
     int comm_limit;
     int alltoall_type_write;

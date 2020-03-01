@@ -515,6 +515,8 @@ void ADIO_Close(ADIO_File fd, int *error_code)
     int i, j, k, combiner, myrank, err;
     static char myname[] = "ADIO_CLOSE";
 
+    ADIOI_Free(fd->global_aggregators);
+
     if (fd->async_count) {
         *error_code = MPIO_Err_create_code(MPI_SUCCESS, MPIR_ERR_RECOVERABLE,
                                            myname, __LINE__, MPI_ERR_IO, "**io",
