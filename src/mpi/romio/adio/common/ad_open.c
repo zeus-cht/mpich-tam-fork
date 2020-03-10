@@ -440,61 +440,7 @@ int aggregator_meta_information(int rank, int *process_node_list, int nprocs, in
     return 0;
 }
 
-int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, int nprocs){
-    char *p;
-    int *global_aggregators_new, i;
-    fd->global_aggregators = (int*) ADIOI_Malloc(sizeof(int)*fd->hints->cb_nodes);
-    memcpy(fd->global_aggregators, fd->hints->ranklist, fd->hints->cb_nodes * sizeof(int));
-    fd->aggregator_index = -1;
-    if (fd->is_agg){
-        for ( i = 0; i < fd->hints->cb_nodes; ++i ){
-            if (rank == fd->hints->ranklist[i]){
-                fd->aggregator_index = i;
-                break;
-            }
-        }
-    }
-    //fd->nprocs_temp_buffer = (int*) ADIOI_Malloc(sizeof(int)*nprocs);
-    /* We spreadout the global aggregators within a node (keeping the same number of global aggregators per node)*/
-/*
-    spreadout_global_aggregators(rank, process_node_list, nprocs, nrecvs, fd->hints->cb_nodes, fd->hints->ranklist, &global_aggregators_new);
-    if (fd->hints->cb_nodes > 0){
-        ADIOI_Free(fd->hints->ranklist);
-    }
-    fd->hints->ranklist = global_aggregators_new;
-*/
-    /* Need to update some global variables.*/
-
-    /* Reorder the array of global aggregators according to node robin style*/
-    reorder_ranklist(process_node_list, fd->hints->ranklist, fd->hints->cb_nodes, nrecvs, fd->info);
-
-    //fd->my_cb_nodes_index = -2;
-    //fd->is_agg = is_aggregator(rank, fd);
-
-
-    /* Timers and environmental variables */
-    fd->local_aggregator_size = nprocs;
-
-    MPI_Comm_dup(fd->comm, &(fd->signal_comm));
-    p=getenv("ROMIO_COMM_LIMIT");
-    if (p==NULL){
-        fd->comm_limit = nprocs + 1000;
-    } else{
-        fd->comm_limit = atoi(p);
-    }
-    p=getenv("ROMIO_COMM_TYPE");
-    if (p==NULL){
-        fd->alltoall_type_write = 1;
-    } else{
-        fd->alltoall_type_write = atoi(p);
-    }
-    p=getenv("ROMIO_BARRIER");
-    if (p==NULL){
-        fd->try_barrier = 0;
-    } else{
-        fd->try_barrier = atoi(p);
-    }
-
+int clear_timer(ADIO_File fd) {
     fd->meta_send_count = 0;
     fd->meta_recv_count = 0;
     fd->data_send_count = 0;
@@ -554,6 +500,72 @@ int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, in
     fd->read_total_time = 0;
     fd->read_io_time = 0;
     fd->read_ntimes = 0;
+    return 0;
+}
+
+
+int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, int nprocs){
+    char *p;
+    int *global_aggregators_new, i;
+    fd->global_aggregators = (int*) ADIOI_Malloc(sizeof(int)*fd->hints->cb_nodes);
+    memcpy(fd->global_aggregators, fd->hints->ranklist, fd->hints->cb_nodes * sizeof(int));
+    fd->aggregator_index = -1;
+    if (fd->is_agg){
+        for ( i = 0; i < fd->hints->cb_nodes; ++i ){
+            if (rank == fd->hints->ranklist[i]){
+                fd->aggregator_index = i;
+                break;
+            }
+        }
+    }
+    //fd->nprocs_temp_buffer = (int*) ADIOI_Malloc(sizeof(int)*nprocs);
+    /* We spreadout the global aggregators within a node (keeping the same number of global aggregators per node)*/
+/*
+    spreadout_global_aggregators(rank, process_node_list, nprocs, nrecvs, fd->hints->cb_nodes, fd->hints->ranklist, &global_aggregators_new);
+    if (fd->hints->cb_nodes > 0){
+        ADIOI_Free(fd->hints->ranklist);
+    }
+    fd->hints->ranklist = global_aggregators_new;
+*/
+    /* Need to update some global variables.*/
+
+    /* Reorder the array of global aggregators according to node robin style*/
+    reorder_ranklist(process_node_list, fd->hints->ranklist, fd->hints->cb_nodes, nrecvs, fd->info);
+
+    //fd->my_cb_nodes_index = -2;
+    //fd->is_agg = is_aggregator(rank, fd);
+
+
+    /* Timers and environmental variables */
+    fd->local_aggregator_size = nprocs;
+
+    MPI_Comm_dup(fd->comm, &(fd->signal_comm));
+    p=getenv("ROMIO_COMM_LIMIT");
+    if (p==NULL){
+        fd->comm_limit = 32;
+    } else{
+        fd->comm_limit = atoi(p);
+    }
+    p=getenv("ROMIO_COMM_TYPE");
+    if (p==NULL){
+        fd->alltoall_type_write = 2;
+    } else{
+        fd->alltoall_type_write = atoi(p);
+    }
+    p=getenv("ROMIO_COMM_META_TYPE");
+    if (p==NULL){
+        fd->alltoall_type_meta = 2;
+    } else{
+        fd->alltoall_type_meta = atoi(p);
+    }
+    p=getenv("ROMIO_BARRIER");
+    if (p==NULL){
+        fd->try_barrier = 0;
+    } else{
+        fd->try_barrier = atoi(p);
+    }
+
+    clear_timer(fd);
 
     return 0;
 }
@@ -561,7 +573,8 @@ int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, in
 int additional_hint_print(ADIO_File fd, int nrecvs, int nprocs){
     int i;
     /*TAM hints print out, we print a full list of global aggregators again here.*/
-    printf("key = %-25s value = %-10d\n", "comm type", fd->alltoall_type_write);
+    printf("key = %-25s value = %-10d\n", "meta comm type", fd->alltoall_type_meta);
+    printf("key = %-25s value = %-10d\n", "write comm type", fd->alltoall_type_write);
     printf("key = %-25s value = %-10d\n", "comm limit", fd->comm_limit);
     printf("key = %-25s value = %-10d\n", "try  barrier", fd->try_barrier);
     printf("key = %-25s value = ", "global aggregators");    
@@ -688,6 +701,11 @@ ADIO_File ADIO_Open(MPI_Comm orig_comm,
     p=getenv("ROMIO_cb_config_list");
     if (p!=NULL){
         ADIOI_Info_set(ADIOI_syshints, "cb_config_list", p);
+    }
+
+    p=getenv("ROMIO_cb_buffer_size");
+    if (p!=NULL){
+        ADIOI_Info_set(ADIOI_syshints, "cb_buffer_size", p);
     }
     /* For Lustre hints related to global aggregators, we need to actually open the file before the colletive open function.
      * We use the original access mode. If it does not work, we just forget about the hints. */

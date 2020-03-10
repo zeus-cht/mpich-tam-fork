@@ -43,7 +43,17 @@
 
 #if QIAO_DEBUG==1
 int print_timing_results(ADIO_File fd, int myrank, int is_write);
+int clear_timer(ADIO_File fd);
+int all_to_many_scatter(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
+                          char *recv_buf, int *recv_size, int *rdispls,
+                          MPI_Datatype *rdtypes, int rank, int procs, ADIO_File fd,
+                          MPI_Request *requests, int isagg);
 #endif
+
+int all_to_all_selection(char** send_buf, char *send_buf_start, int* send_size, int *recv_size, int *sdispls, int *rdispls,
+                         MPI_Datatype *dtypes, char* recv_buf_ptr, int isagg, int type, ADIO_File fd, int myrank, int nprocs, MPI_Request *requests);
+
+
 
 /* prototypes of functions used for collective writes only. */
 static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
@@ -73,7 +83,7 @@ static void ADIOI_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, char 
                                             int *done_to_proc, int *hole,       /* 4 */
                                             int iter, MPI_Aint buftype_extent, MPI_Aint * buf_idx,
                                             int *error_code);
-static void ADIOI_Fill_send_buffer(ADIO_File fd, const void *buf, ADIOI_Flatlist_node
+static void ADIOI_Fill_send_buffer2(ADIO_File fd, const void *buf, ADIOI_Flatlist_node
                                    * flat_buf, char **send_buf, ADIO_Offset
                                    * offset_list, ADIO_Offset * len_list, int *send_size,
                                    MPI_Request * requests, int *sent_to_proc,
@@ -137,15 +147,8 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
     #if QIAO_DEBUG == 1
     double compute_time, total_time;
     total_time= MPI_Wtime();
-    fd->meta_send_count = 0;
-    fd->meta_recv_count = 0;
-    fd->data_send_count = 0;
-    fd->data_recv_count = 0;
-    fd->read_data_send_count = 0;
-    fd->read_data_recv_count = 0;
-    fd->local_request_count = 0;
-    fd->gathered_request_count = 0;
-    fd->ntimes = 0;
+
+    clear_timer(fd);
     #endif
 
     MPI_Comm_size(fd->comm, &nprocs);
@@ -493,6 +496,10 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
     ADIOI_Free(fd_start);
 
   fn_exit:
+    #if QIAO_DEBUG == 1
+    fd->total_time += MPI_Wtime() - total_time;
+    print_timing_results(fd, myrank, 1);
+    #endif
 #ifdef HAVE_STATUS_SET_BYTES
     if (status) {
         MPI_Count bufsize, size;
@@ -510,7 +517,7 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
     MPE_Log_event(5013, 0, NULL);
 #endif
 }
-
+/*
 static void gpfs_wr_access_start(int fd, ADIO_Offset offset, ADIO_Offset length)
 {
     int rc = 0;
@@ -534,7 +541,8 @@ static void gpfs_wr_access_start(int fd, ADIO_Offset offset, ADIO_Offset length)
 #endif
     ADIOI_Assert(rc == 0);
 }
-
+*/
+/*
 static void gpfs_wr_access_end(int fd, ADIO_Offset offset, ADIO_Offset length)
 {
     int rc = 0;
@@ -558,7 +566,7 @@ static void gpfs_wr_access_end(int fd, ADIO_Offset offset, ADIO_Offset length)
 #endif
     ADIOI_Assert(rc == 0);
 }
-
+*/
 #ifdef BGQPLATFORM
 /* my_start, my_end: this processes file domain.  coudd be -1,-1 for "no i/o"
  * fd_start, fd_end: arrays of length fd->hints->cb_nodes specifying all file domains */
@@ -693,16 +701,18 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
     }
     if (ntimes > 0) {   /* only set the gpfs hint if we have io - ie this rank is
                          * an aggregator -- otherwise will fail for deferred open */
+/*
         if (getenv("ROMIO_GPFS_DECLARE_ACCESS") != NULL) {
             gpfs_wr_access_start(fd->fd_sys, st_loc, end_loc - st_loc);
         }
+*/
     }
 
     ADIO_Offset st_loc_ion = 0, end_loc_ion = 0, needs_gpfs_access_cleanup = 0;
 #ifdef BGQPLATFORM
     if (ntimes > 0) {   /* only set the gpfs hint if we have io - ie this rank is
                          * an aggregator -- otherwise will fail for deferred open */
-
+/*
         if (getenv("ROMIO_GPFS_DECLARE_ION_ACCESS") != NULL) {
             if (gpfs_find_access_for_ion(fd, st_loc, end_loc, fd_start, fd_end,
                                          &st_loc_ion, &end_loc_ion)) {
@@ -710,6 +720,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
                 needs_gpfs_access_cleanup = 1;
             }
         }
+*/
     }
 #endif
 
@@ -998,7 +1009,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
     ADIOI_Free(sent_to_proc);
     ADIOI_Free(start_pos);
     ADIOI_Free(send_buf_idx);
-
+/*
     if (ntimes != 0 && getenv("ROMIO_GPFS_DECLARE_ACCESS") != NULL) {
         gpfs_wr_access_end(fd->fd_sys, st_loc, end_loc - st_loc);
     }
@@ -1007,7 +1018,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
         gpfs_wr_access_end(fd->fd_sys, st_loc_ion, end_loc_ion - st_loc_ion);
         needs_gpfs_access_cleanup = 0;
     }
-
+*/
     unsetenv("LIBIOLOG_EXTRA_INFO");
 }
 
@@ -1193,7 +1204,7 @@ static void ADIOI_W_Exchange_data(ADIO_File fd, const void *buf, char *write_buf
         for (i = 1; i < nprocs; i++)
             send_buf[i] = send_buf[i - 1] + send_size[i - 1];
 
-        ADIOI_Fill_send_buffer(fd, buf, flat_buf, send_buf,
+        ADIOI_Fill_send_buffer2(fd, buf, flat_buf, send_buf,
                                offset_list, len_list, send_size,
                                send_req,
                                sent_to_proc, nprocs, myrank,
@@ -1314,7 +1325,7 @@ static void ADIOI_W_Exchange_data(ADIO_File fd, const void *buf, char *write_buf
     ADIOI_BUF_INCR \
 }
 
-static void ADIOI_Fill_send_buffer(ADIO_File fd, const void *buf, ADIOI_Flatlist_node
+static void ADIOI_Fill_send_buffer2(ADIO_File fd, const void *buf, ADIOI_Flatlist_node
                                    * flat_buf, char **send_buf, ADIO_Offset
                                    * offset_list, ADIO_Offset * len_list, int *send_size,
                                    MPI_Request * requests, int *sent_to_proc,
@@ -1529,274 +1540,6 @@ static void ADIOI_Heap_merge(ADIOI_Access * others_req, int *count,
     ADIOI_Free(a);
 }
 
-int all_to_many_original(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
-                          char *recv_buf, int *recv_size, int *rdispls,
-                          MPI_Datatype *rdtypes, int rank, int procs, ADIO_File fd, MPI_Status *statuses,
-                          MPI_Request *requests, int isagg){
-    int i, j;
-
-    j = 0;
-    for (i = 0; i < procs; ++i) {
-        if (recv_size[i]){
-            MPI_Irecv(recv_buf + rdispls[i], recv_size[i], rdtypes[i], i, rank + i, fd->comm, &requests[j++]);
-        }
-    }
-
-    for (i = 0; i < procs; ++i) {
-        if (send_size[i]) {
-            MPI_Issend(send_buf[i], send_size[i], sdtypes[i], i, rank + i, fd->comm, &requests[j++]);
-        }
-    }
-    if (j) {
-        MPI_Waitall(j, requests, statuses);
-    }
-}
-
-int all_to_many_simple(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
-                          char *recv_buf, int *recv_size, int *rdispls,
-                          MPI_Datatype *rdtypes, int rank, int procs, ADIO_File fd, MPI_Status *statuses,
-                          MPI_Request *requests, int isagg){
-    int i, j;
-
-    j = 0;
-    for (i = 0; i < procs; ++i) {
-        /* do the communication -- post ss sends and receives: */
-        if (recv_size[i]){
-            MPI_Irecv(recv_buf + rdispls[i], recv_size[i], rdtypes[i], i, rank + i, fd->comm, &requests[j++]);
-        }
-
-        if (send_size[i]) {
-            MPI_Issend(send_buf[i], send_size[i], sdtypes[i], i, rank + i, fd->comm, &requests[j++]);
-        }
-    }
-    if (j) {
-        MPI_Waitall(j, requests, statuses);
-    }
-}
-
-int all_to_many_scatter(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
-                          char *recv_buf, int *recv_size, int *rdispls,
-                          MPI_Datatype *rdtypes, int rank, int procs, ADIO_File fd, MPI_Status *statuses,
-                          MPI_Request *requests, int isagg){
-    int i, j, ii, ss, bblock, dst;
-    int comm_size = fd->comm_limit;
-
-    if (comm_size > procs){
-        comm_size = procs;
-    }
-    bblock = comm_size;
-    comm_size = procs;
-    if (bblock == 0) {
-        bblock = comm_size;
-    }
-    for (ii = 0; ii < comm_size; ii += bblock) {
-        ss = comm_size - ii < bblock ? comm_size - ii : bblock;
-        /* do the communication -- post ss sends and receives: */
-        j = 0;
-        for (i = 0; i < ss; i++) {
-            dst = (rank + i + ii) % comm_size;
-            if (recv_size[dst]){
-                MPI_Irecv(recv_buf + rdispls[dst], recv_size[dst], rdtypes[dst], dst, rank + dst, fd->comm, &requests[j++]);
-            }
-        }
-
-        for (i = 0; i < ss; i++) {
-            dst = (rank - i - ii + comm_size) % comm_size;
-            if (send_size[dst]) {
-                MPI_Issend(send_buf[dst], send_size[dst], sdtypes[dst], dst, rank + dst, fd->comm, &requests[j++]);
-            }
-        }
-        if (j) {
-            MPI_Waitall(j, requests, statuses);
-        }
-    }
-}
-
-int all_to_many_balanced_control(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
-                          char *recv_buf, int *recv_size, int *rdispls,
-                          MPI_Datatype *rdtypes, int rank, int procs, ADIO_File fd, MPI_Status *statuses,
-                          MPI_Request *requests, int isagg){
-    int i, j, k, x, temp;
-    int comm_size = fd->comm_limit;
-    int cb_nodes = fd->hints->cb_nodes;
-    int *rank_list = fd->hints->ranklist;
-    int myindex = fd->aggregator_index;
-    int ceiling, floor, remainder, send_start;
-
-    if (comm_size > procs){
-        comm_size = procs;
-    }
-    ceiling = (procs + cb_nodes - 1) / cb_nodes;
-    floor = procs / cb_nodes;
-    remainder = procs % cb_nodes;
-    // Send start correspond to aggregators' index
-    if ( rank >= remainder * ceiling ){
-        send_start = remainder + (rank - remainder * ceiling) / floor;
-    } else{
-        send_start = rank / ceiling;
-    }
-    for ( k = 0; k < procs; k+=comm_size ){
-        if ( procs - k < comm_size ){
-            comm_size = procs - k;
-        }
-        j = 0;
-        if (isagg){
-            for ( i = 0; i < comm_size; ++i ){
-                if (myindex < remainder) {
-                    temp = (k + i + myindex * ceiling) % procs;
-                } else {
-                    temp = (k + i + remainder * ceiling + (myindex - remainder) * floor) % procs;
-                }
-                if ( recv_size[temp] ) {
-                    if (rank != temp){
-                        MPI_Irecv(recv_buf + rdispls[temp], recv_size[temp], rdtypes[temp], temp, rank + temp, fd->comm, &requests[j++]);
-                        MPI_Isend(MPI_BOTTOM, 0, MPI_BYTE, temp, rank + temp * 100, fd->signal_comm, &requests[j++]);
-                    } else {
-                        memcpy(recv_buf + rdispls[temp], send_buf[temp], recv_size[temp] * sizeof(char));
-                    }
-                }
-            }
-        }
-        for ( x = 0; x < cb_nodes; ++x ) {
-            if (send_start < remainder) {
-                temp = k + send_start * ceiling;
-            } else {
-                temp = k + remainder * ceiling + (send_start - remainder) * floor;
-            }
-            if ( (temp >= procs && temp + comm_size >= procs) || (temp < procs && temp + comm_size < procs) ){
-                if (rank >= temp % procs && rank < (temp + comm_size) % procs ) {
-                    if (rank_list[send_start] != rank && send_size[rank_list[send_start]]) {
-                        MPI_Recv(MPI_BOTTOM, 0, MPI_BYTE, rank_list[send_start], rank * 100 + rank_list[send_start],
-                                    fd->signal_comm, MPI_STATUS_IGNORE);
-                        MPI_Issend(send_buf[rank_list[send_start]], send_size[rank_list[send_start]], sdtypes[rank_list[send_start]], rank_list[send_start], rank + rank_list[send_start], fd->comm, &requests[j++]);
-                    }                  
-                } else {
-                    break;
-                }
-            } else{
-                if ( rank >= temp || rank < (temp + comm_size) % procs ) {
-                    if (rank_list[send_start] != rank && send_size[rank_list[send_start]]) {
-                        MPI_Recv(MPI_BOTTOM, 0, MPI_BYTE, rank_list[send_start], rank * 100 + rank_list[send_start],
-                                    fd->signal_comm, MPI_STATUS_IGNORE);
-                        MPI_Issend(send_buf[rank_list[send_start]], send_size[rank_list[send_start]], sdtypes[rank_list[send_start]], rank_list[send_start], rank + rank_list[send_start], fd->comm, &requests[j++]);
-                    }
-                } else {
-                    break;
-                }
-            }
-            send_start = (send_start - 1 + cb_nodes) % cb_nodes;
-        }
-        if (j) {
-            MPI_Waitall(j, requests, statuses);
-        }
-    }
-}
-
-/*
- * We want to know who is receiving data in this iteration for better performance.
- * Everyone gather the tag if it is a global aggregator and perform a huge allgather.
-*/
-/*
-int gather_global_aggregators(ADIO_File fd, int rank, int nprocs, int isagg, int* cb_nodes, int *aggregator_index) {
-    int i;
-    MPI_Allgather(&isagg, 1, MPI_INT,
-                  fd->nprocs_temp_buffer, 1, MPI_INT,
-                  fd->comm);
-    cb_nodes[0] = 0;
-    for ( i = 0; i < nprocs; ++i ) {
-        if (fd->nprocs_temp_buffer[i]) {
-            fd->global_aggregators[cb_nodes[0]] = i;
-            if (rank == i) {
-                aggregator_index[0] = cb_nodes[0];
-            }
-            cb_nodes[0]++;
-        }
-    }
-}
-*/
-int all_to_many_balanced(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
-                          char *recv_buf, int *recv_size, int *rdispls,
-                          MPI_Datatype *rdtypes, int rank, int procs, ADIO_File fd, MPI_Status *statuses,
-                          MPI_Request *requests, int isagg){
-    int i, j, k, x, temp;
-    int comm_size = fd->comm_limit;
-    int cb_nodes;
-    int *rank_list;
-    int myindex;
-    int ceiling, floor, remainder, send_start;
-/*
-    gather_global_aggregators(fd, rank, procs, isagg, &cb_nodes, &myindex); 
-*/
-    myindex = fd->aggregator_index;
-    cb_nodes = fd->hints->cb_nodes;
-    rank_list = fd->global_aggregators;
-
-
-    if (comm_size > procs){
-        comm_size = procs;
-    }
-    ceiling = (procs + cb_nodes - 1) / cb_nodes;
-    floor = procs / cb_nodes;
-    remainder = procs % cb_nodes;
-    // Send start correspond to aggregators' index
-    if ( rank >= remainder * ceiling ){
-        send_start = remainder + (rank - remainder * ceiling) / floor;
-    } else{
-        send_start = rank / ceiling;
-    }
-    for ( k = 0; k < procs; k+=comm_size ){
-        if ( procs - k < comm_size ){
-            comm_size = procs - k;
-        }
-        j = 0;
-        if (isagg){
-            for ( i = 0; i < comm_size; ++i ){
-                if (myindex < remainder) {
-                    temp = (k + i + myindex * ceiling) % procs;
-                } else {
-                    temp = (k + i + remainder * ceiling + (myindex - remainder) * floor) % procs;
-                }
-                if ( recv_size[temp] ) {
-                    if (rank != temp){
-                        MPI_Irecv(recv_buf + rdispls[temp], recv_size[temp], rdtypes[temp], temp, rank + temp, fd->comm, &requests[j++]);
-                    } else {
-                        memcpy(recv_buf + rdispls[temp], send_buf[temp], recv_size[temp] * sizeof(char));
-                    }
-                }
-            }
-        }
-        for ( x = 0; x < cb_nodes; ++x ) {
-            if (send_start < remainder) {
-                temp = k + send_start * ceiling;
-            } else {
-                temp = k + remainder * ceiling + (send_start - remainder) * floor;
-            }
-            if ( (temp >= procs && temp + comm_size >= procs) || (temp < procs && temp + comm_size < procs) ){
-                if (rank >= temp % procs && rank < (temp + comm_size) % procs ) {
-                    if (rank_list[send_start] != rank && send_size[rank_list[send_start]]) {
-                        MPI_Issend(send_buf[rank_list[send_start]], send_size[rank_list[send_start]], sdtypes[rank_list[send_start]], rank_list[send_start], rank + rank_list[send_start], fd->comm, &requests[j++]);
-                    }                  
-                } else {
-                    break;
-                }
-            } else{
-                if ( rank >= temp || rank < (temp + comm_size) % procs ) {
-                    if (rank_list[send_start] != rank && send_size[rank_list[send_start]]) {
-                        MPI_Issend(send_buf[rank_list[send_start]], send_size[rank_list[send_start]], sdtypes[rank_list[send_start]], rank_list[send_start], rank + rank_list[send_start], fd->comm, &requests[j++]);
-                    }
-                } else {
-                    break;
-                }
-            }
-            send_start = (send_start - 1 + cb_nodes) % cb_nodes;
-        }
-        if (j) {
-            MPI_Waitall(j, requests, statuses);
-        }
-    }
-}
-
-
 static void ADIOI_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, char *write_buf,     /* 1 */
                                             ADIOI_Flatlist_node * flat_buf, ADIO_Offset * offset_list, ADIO_Offset * len_list, int *send_size, int *recv_size, ADIO_Offset off, int size,       /* 2 */
                                             int *count, int *start_pos, int *partial_recv, int *sent_to_proc, int nprocs, int myrank, int buftype_is_contig, int contig_access_count, ADIO_Offset min_st_offset, ADIO_Offset fd_size, ADIO_Offset * fd_start, ADIO_Offset * fd_end, ADIOI_Access * others_req, int *send_buf_idx, int *curr_to_proc,    /* 3 */
@@ -1817,34 +1560,77 @@ static void ADIOI_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, char 
     ADIO_Offset *srt_off;
     static char myname[] = "ADIOI_W_EXCHANGE_DATA";
     double io_time;
-    MPI_Status *statuses;
     MPI_Request *requests = NULL;
     MPI_Datatype *dtypes;
+    int *s_size, *r_size;
     #if QIAO_DEBUG == 1
     double comm_time;
     #endif
 
+    #if QIAO_DEBUG == 1
+    comm_time = MPI_Wtime();
+    #endif
     io_time = MPI_Wtime();
     /* exchange recv_size info so that each process knows how much to
      * send to whom. */
-    MPI_Alltoall(recv_size, 1, MPI_INT, send_size, 1, MPI_INT, fd->comm);
+    send_buf = (char **) ADIOI_Malloc(nprocs * sizeof(char *));
+    if (fd->is_agg) {
+        requests = (MPI_Request *) ADIOI_Malloc((nprocs * 2 + fd->hints->cb_nodes) *
+                                               sizeof(MPI_Request));
+    } else {
+        requests = (MPI_Request *) ADIOI_Malloc(fd->hints->cb_nodes *
+                                               sizeof(MPI_Request));
+    }
+    dtypes = (MPI_Datatype *) ADIOI_Malloc(nprocs * sizeof(MPI_Datatype));
+    for ( i = 0; i < nprocs;  ++i ) {
+        dtypes[i] = MPI_BYTE;
+    }
+    rdispls = (int *) ADIOI_Malloc(2 * nprocs * sizeof(int));
+    sdispls = rdispls + nprocs;
+/*
+    s_size = sdispls + nprocs;
+    r_size = s_size + nprocs;
 
+    memset(s_size, 0, sizeof(int) * 2 * nprocs);
+    for ( i = 0; i < fd->hints->cb_nodes; ++i ) {
+        r_size[fd->hints->ranklist[i]] = sizeof(int);
+        rdispls[fd->hints->ranklist[i]] = sizeof(int) * fd->hints->ranklist[i];
+    }
+
+    for ( i = 0; i < nprocs; ++i ) {
+        if ( fd->is_agg ) {
+            s_size[i] = sizeof(int);
+            sdispls[i] = sizeof(int) * i;
+            send_buf[i] = (char *)(recv_size + i);
+        }
+        send_size[i] = 0;
+    }
+*/
+    MPI_Alltoall(recv_size, 1, MPI_INT, send_size, 1, MPI_INT, fd->comm);
+/*
+    all_to_many_scatter(send_buf, s_size, dtypes,
+                          (char*) send_size, r_size, rdispls,
+                          dtypes, myrank, nprocs, fd,
+                          requests, 1);
+*/
+    //all_to_all_selection(send_buf, send_buf[0], s_size, r_size, sdispls, rdispls,
+    //                     dtypes, (char*)recv_size, fd->is_agg, fd, myrank, nprocs, requests);
     gpfsmpio_prof_cw[GPFSMPIO_CIO_T_DEXCH_RECV_EXCH] += MPI_Wtime() - io_time;
     io_time = MPI_Wtime();
 
     nprocs_recv = 0;
-    for (i = 0; i < nprocs; i++)
+    nprocs_send = 0;
+    for (i = 0; i < nprocs; i++) {
         if (recv_size[i]) {
             nprocs_recv++;
+            fd->data_recv_count += 1;
         }
-    nprocs_send = 0;
-    for (i = 0; i < nprocs; i++)
         if (send_size[i]) {
             nprocs_send++;
+            fd->data_send_count += 1;
         }
-
+    }
     /* receiver side data structures */
-    rdispls = (int *) ADIOI_Malloc(nprocs * sizeof(int));
     rtail = 0;
     for (i = 0; i < nprocs; i++) {
         rdispls[i] = rtail;
@@ -1855,7 +1641,6 @@ static void ADIOI_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, char 
     all_recv_buf = (char *) ADIOI_Malloc(rtail);
 
     /* sender side data structures */
-    sdispls = (int *) ADIOI_Malloc(nprocs * sizeof(int));
     stail = 0;
     for (i = 0; i < nprocs; i++) {
         sdispls[i] = stail;
@@ -1864,7 +1649,6 @@ static void ADIOI_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, char 
 
     /* data buffer */
     all_send_buf = (char *) ADIOI_Malloc(stail);
-    send_buf = (char **) ADIOI_Malloc(nprocs * sizeof(char *));
     if (buftype_is_contig) {
         for (i = 0; i < nprocs; i++) {
             if (send_size[i]) {
@@ -1891,68 +1675,14 @@ static void ADIOI_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, char 
 
     io_time = MPI_Wtime();
     /* alltoallv */
-    #if QIAO_DEBUG == 1
-    comm_time = MPI_Wtime();
-    #endif
-    statuses = (MPI_Status *) ADIOI_Malloc((nprocs_send + nprocs_recv * 2 + 1) *
-                                           sizeof(MPI_Status));
-    requests = (MPI_Request *) ADIOI_Malloc((nprocs_send + nprocs_recv * 2 + 1) *
-                                           sizeof(MPI_Request));
-    dtypes = (MPI_Datatype *) ADIOI_Malloc(nprocs * sizeof(MPI_Datatype));
-    switch (fd->alltoall_type_write){
-        case 0: {
-            MPI_Alltoallv(all_send_buf, send_size, sdispls, MPI_BYTE,
-                  all_recv_buf, recv_size, rdispls, MPI_BYTE, fd->comm);
-            break;
-        }
-        case 1:{
-            all_to_many_balanced(send_buf, send_size, dtypes,
-                      all_recv_buf, recv_size, rdispls,
-                      dtypes, myrank, nprocs, fd, statuses,
-                      requests, nprocs_recv);
-            break;
-        }
-        case 2:{
-            all_to_many_scatter(send_buf, send_size, dtypes,
-                      all_recv_buf, recv_size, rdispls,
-                      dtypes, myrank, nprocs, fd, statuses,
-                      requests, nprocs_recv);
-            break;
-        }
-        case 3:{
-            all_to_many_simple(send_buf, send_size, dtypes,
-                      all_recv_buf, recv_size, rdispls,
-                      dtypes, myrank, nprocs, fd, statuses,
-                      requests, nprocs_recv);
-            break;
-        }
-        case 4:{
-            all_to_many_original(send_buf, send_size, dtypes,
-                      all_recv_buf, recv_size, rdispls,
-                      dtypes, myrank, nprocs, fd, statuses,
-                      requests, nprocs_recv);
-            break;
-        }
-        case 5:{
-            all_to_many_balanced_control(send_buf, send_size, dtypes,
-                      all_recv_buf, recv_size, rdispls,
-                      dtypes, myrank, nprocs, fd, statuses,
-                      requests, nprocs_recv);
-
-            break;
-        }
-        default:{
-            break;
-        }
-    }
+    all_to_all_selection(send_buf, all_send_buf, send_size, recv_size, sdispls, rdispls,
+                         dtypes, all_recv_buf, nprocs_recv, fd->alltoall_type_write, fd, myrank, nprocs, requests);
     ADIOI_Free(dtypes);
-    ADIOI_Free(statuses);
     ADIOI_Free(requests);
     ADIOI_Free(send_buf);
     ADIOI_Free(all_send_buf);
-    ADIOI_Free(sdispls);
     #if QIAO_DEBUG == 1
-    fd->inter_wait_time += MPI_Wtime()-comm_time;
+    fd->inter_wait_time += MPI_Wtime() - comm_time;
     #endif
 
     gpfsmpio_prof_cw[GPFSMPIO_CIO_T_DEXCH_NET] += MPI_Wtime() - io_time;

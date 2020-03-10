@@ -241,6 +241,7 @@ typedef struct ADIOI_FileD {
 
     int comm_limit;
     int alltoall_type_write;
+    int alltoall_type_meta;
     int aggregator_index;
     int try_barrier;    
 

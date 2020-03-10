@@ -33,7 +33,8 @@ int write_logs(ADIO_File fd){
         fprintf(stream,"# of metadata recv,");
         fprintf(stream,"# of data send,");
         fprintf(stream,"# of data recv,");
-        fprintf(stream,"comm type,");
+        fprintf(stream,"comm type meta,");
+        fprintf(stream,"comm type write,");
         fprintf(stream,"comm limit,");
         fprintf(stream,"barrier,");
         // end of patch
@@ -75,6 +76,7 @@ int write_logs(ADIO_File fd){
     fprintf(stream,"%llu,",fd->meta_recv_count);
     fprintf(stream,"%llu,",fd->data_send_count);
     fprintf(stream,"%llu,",fd->data_recv_count);
+    fprintf(stream,"%d,",fd->alltoall_type_meta);
     fprintf(stream,"%d,",fd->alltoall_type_write);
     fprintf(stream,"%d,",fd->comm_limit);
     fprintf(stream,"%d,",fd->try_barrier);
@@ -132,7 +134,8 @@ int read_logs(ADIO_File fd){
         fprintf(stream,"# of metadata recv,");
         fprintf(stream,"# of data send,");
         fprintf(stream,"# of data recv,");
-        fprintf(stream,"comm type,");
+        fprintf(stream,"comm meta type,");
+        fprintf(stream,"comm write type,");
         fprintf(stream,"comm limit,");
         fprintf(stream,"barrier,");
         // end of patch
@@ -173,6 +176,7 @@ int read_logs(ADIO_File fd){
     fprintf(stream,"%llu,",fd->meta_recv_count);
     fprintf(stream,"%llu,",fd->read_data_send_count);
     fprintf(stream,"%llu,",fd->read_data_recv_count);
+    fprintf(stream,"%d,",fd->alltoall_type_meta);
     fprintf(stream,"%d,",fd->alltoall_type_write);
     fprintf(stream,"%d,",fd->comm_limit);
     fprintf(stream,"%d,",fd->try_barrier);
@@ -402,7 +406,7 @@ int print_timing_results(ADIO_File fd, int myrank, int is_write){
     if (myrank==0){
         if (is_write){
             printf("rank 0 write timing+--------------------------------------------------------------------------+\n");
-            printf("| write collective write cycle breakdown for ntimes = %d\n", fd->read_ntimes);
+            printf("| write collective write cycle breakdown for ntimes = %d\n", fd->ntimes);
             printf("|\n");
             printf("| write collective local requests = %llu\n",fd->local_request_count);
             printf("| write collective max local requests = %llu, min local requests = %llu, total_request=%llu\n",request_sum_ptr[1][0],request_sum_ptr[2][0],request_sum_ptr[0][0]);
@@ -428,7 +432,9 @@ int print_timing_results(ADIO_File fd, int myrank, int is_write){
             printf("| write 1 max intra total = %lf\n", fd->total_intra_time);
             printf("|\n");
             printf("| write 2 max calculate my request = %lf\n", fd->calc_my_request_time);
-            printf("| write 2 max calc other request = %lf\n", fd->calc_other_request_time);
+            printf("| write 2 max calc other request all to all = %lf\n", fd->calc_other_request_all_to_all_time);
+            printf("| write 2 max calc other request wait = %lf\n", fd->calc_other_request_wait_time);
+            printf("| write 2 max calc other request total = %lf\n", fd->calc_other_request_time);
             printf("|\n");
             printf("| write 2 max inter datatype create = %lf\n", fd->inter_type_time);
             printf("| write 2 max inter heap = %lf\n", fd->inter_heap_time);
