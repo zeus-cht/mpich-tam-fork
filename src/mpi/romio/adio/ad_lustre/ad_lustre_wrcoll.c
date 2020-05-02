@@ -901,7 +901,7 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
             /* If buftype is not contiguous, pack data into send_buf[], including
              * ones sent to self.
              */
-            size_t send_total_size = 0;
+            send_total_size = 0;
             for (i = 0; i < nprocs; i++)
                 send_total_size += send_size[i];
             send_buf = (char **) ADIOI_Malloc(nprocs * sizeof(char *));
@@ -964,8 +964,8 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
         /* Only global aggregators receive data. The rest of send_size entry must be zero. 
          * cb_send_size is used in order to reduce the number of integer at intra-node aggregation. */
         for (i = 0; i < fd->hints->cb_nodes; ++i) {
-            /* Skip self-send. */
             send_total_size += send_size[fd->hints->ranklist[i]];
+            /* Skip self-send. */
             if ( myrank != fd->hints->ranklist[i] ) {
                 fd->cb_send_size[i] = send_size[fd->hints->ranklist[i]];
             } else {
@@ -976,26 +976,26 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
          * send_buf[myrank] is unpacked directly without participating in communication. */
         send_buf = (char **) ADIOI_Malloc(nprocs * sizeof(char *));
         send_buf_start = (char *) ADIOI_Malloc(send_total_size+1);
-        if (myrank) {
+        if (myrank != fd->hints->ranklist[0]) {
             /* nprocs >=2 for this case, we are pretty safe to put send_buf[myrank] into the end. */
-            send_buf[0] = send_buf_start;
-            buf_ptr = send_buf[0] + send_size[0];
-            for (i = 1; i < nprocs; i++) {
-                if ( i != myrank ) {
-                    send_buf[i] = buf_ptr;
-                    buf_ptr += send_size[i];
+            send_buf[fd->hints->ranklist[0]] = send_buf_start;
+            buf_ptr = send_buf[fd->hints->ranklist[0]] + send_size[fd->hints->ranklist[0]];
+            for (i = 1; i < fd->hints->cb_nodes; ++i) {
+                if ( fd->hints->ranklist[i] != myrank ) {
+                    send_buf[fd->hints->ranklist[i]] = buf_ptr;
+                    buf_ptr += send_size[fd->hints->ranklist[i]];
                 }
             }
             send_buf[myrank] = buf_ptr;
         } else {
-            /* myrank == 0, but nprocs can be 1, need to be extra careful.
+            /* myrank == first global aggregator, but nprocs can be 1, need to be extra careful.
              * We split into two cases. */
             if (nprocs > 1) {
-                send_buf[1] = send_buf_start;
-                for ( i = 2; i < nprocs; ++i ) {
-                    send_buf[i] = send_buf[i - 1] + send_size[i - 1];
+                send_buf[fd->hints->ranklist[1]] = send_buf_start;
+                for ( i = 2; i < fd->hints->cb_nodes; ++i ) {
+                    send_buf[fd->hints->ranklist[i]] = send_buf[fd->hints->ranklist[i-1]] + send_size[fd->hints->ranklist[i-1]];
                 }
-                send_buf[0] = send_buf[nprocs - 1] + send_size[nprocs - 1];
+                send_buf[fd->hints->ranklist[0]] = send_buf[fd->hints->ranklist[fd->hints->cb_nodes - 1]] + send_size[fd->hints->ranklist[fd->hints->cb_nodes - 1]];
             } else {
                 /* I am the only rank 0, so I am the start of send_buf_start */
                 send_buf[myrank] = send_buf_start;
@@ -1022,7 +1022,7 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
                                           iter, buftype_extent);
         }
         /* Local message directly unpack, otherwise it has to go to a local aggregator then sent back, a waste of bandwidth */
-        if (send_size[myrank] ) {
+        if ( send_size[myrank] ) {
             MEMCPY_UNPACK(myrank, send_buf[myrank]);
         }
         /* End of buffer preparation */
@@ -1096,7 +1096,7 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
                 if ( fd->aggregator_local_ranks[i] != myrank ){
                     MPI_Irecv(fd->local_buf + fd->local_lens[i * fd->hints->cb_nodes - 1], fd->local_lens[(i+1)*fd->hints->cb_nodes-1] - fd->local_lens[i*fd->hints->cb_nodes-1], MPI_BYTE, fd->aggregator_local_ranks[i], fd->aggregator_local_ranks[i] + myrank, fd->comm, &req[j++]);
                 } else {
-                    memcpy(fd->local_buf + fd->local_lens[i * fd->hints->cb_nodes-1], send_buf_start, (fd->local_lens[(i + 1) * fd->hints->cb_nodes-1] - fd->local_lens[i * fd->hints->cb_nodes-1]) * sizeof(char) );
+                    memcpy(fd->local_buf + fd->local_lens[i * fd->hints->cb_nodes - 1], send_buf_start, (fd->local_lens[(i + 1) * fd->hints->cb_nodes-1] - fd->local_lens[i * fd->hints->cb_nodes-1]) * sizeof(char) );
                 }
             }
         }
@@ -1117,18 +1117,22 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
 
         ADIOI_Free(send_buf_start);
         ADIOI_Free(send_buf);
-#if 1==2
+
         /* 3. Inter-node aggregation phase of data from local aggregators to global aggregators.
          * Global aggregators know the data size from all processes in recv_size, so there is no need to exchange data size, this can boost performance. */
         j = 0;
         if (nprocs_recv) {
             /* global_recv_size is an array that indicate the sum of data size to be received from local aggregators. */
-            memset(fd->global_recv_size, 0, sizeof(MPI_Aint) * fd->local_aggregator_size);
+//            memset(fd->global_recv_size, 0, sizeof(MPI_Aint) * fd->local_aggregator_size);
             for ( i = 0; i < fd->local_aggregator_size; ++i ) {
                 /* We need to count data size from local aggregators 
                  * global_recv_size is an array of local aggregator size. */
+                fd->global_recv_size[i] = 0;
                 for ( k = 0; k < fd->local_aggregator_domain_size[i]; ++k ) {
-                    fd->global_recv_size[i] += recv_size[fd->local_aggregator_domain[i][k]];
+                    /* Remeber a global aggregator does not receive anything from itself (so does its domain handled by any local aggregators)*/
+                    if (myrank != fd->local_aggregator_domain[i][k]) {
+                        fd->global_recv_size[i] += recv_size[fd->local_aggregator_domain[i][k]];
+                    }
                 }
             }
             /* Now we can do the Irecv post from local aggregators to global aggregators
@@ -1212,7 +1216,7 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
                 /* Local aggregate messages are unpacked previously */
                 if (fd->local_aggregators[i] != myrank){
                     /* Directly unpack from current buffer. The buffer may not be ordered.
-                     * local_aggregator_domain record which processes a local aggregator represent for.
+                     * local_aggregator_domain record which processes a local aggregator represents for.
                      * The contig_buf is in the order of local aggregators (contiguously with respect to its domain), so we just unpack them one by one carefully. */
                     for ( k = 0; k < fd->local_aggregator_domain_size[i]; ++k ) {
                         /* Local data has been unpacked at the beginning, nothing should be received from its local aggregator. */
@@ -1224,7 +1228,6 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
                 }
             }
         }
-#endif
     }
 
     /* free temporary receive buffer */
