@@ -159,7 +159,7 @@ static void ADIOI_LUSTRE_IOContig(ADIO_File fd, const void *buf, int count,
 
     if (count == 0) {
         *error_code = MPI_SUCCESS;
-        return;
+        goto fn_exit; 
     }
 
     MPI_Type_size_x(datatype, &datatype_size);
@@ -174,7 +174,7 @@ static void ADIOI_LUSTRE_IOContig(ADIO_File fd, const void *buf, int count,
         p = (char *) buf;
         if (io_mode) {
             while (bytes_xfered < len) {
-#ifdef ADIOI_MPE_LOGGING
+#ifdef AiDIOI_MPE_LOGGING
                 MPE_Log_event(ADIOI_MPE_write_a, 0, NULL);
 #endif
                 rw_count = len - bytes_xfered;
@@ -219,6 +219,7 @@ static void ADIOI_LUSTRE_IOContig(ADIO_File fd, const void *buf, int count,
     if (file_ptr_type == ADIO_INDIVIDUAL) {
         fd->fp_ind += bytes_xfered;
     }
+    fn_exit:
 #ifdef HAVE_STATUS_SET_BYTES
     if (status)
         MPIR_Status_set_bytes(status, datatype, bytes_xfered);
