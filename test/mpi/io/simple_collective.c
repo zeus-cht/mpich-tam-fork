@@ -52,7 +52,7 @@ int test_write(char *file, int nprocs, int rank, MPI_Info info)
     stime = MPI_Wtime();
 
     ret = MPI_File_open(MPI_COMM_WORLD, file,
-                        MPI_MODE_CREATE | MPI_MODE_WRONLY | MPI_MODE_EXCL, info, &fh);
+                        MPI_MODE_CREATE | MPI_MODE_WRONLY, info, &fh);
 
     if (ret != 0) {
         fprintf(stderr, "Error: failed to open %s\n", file);
