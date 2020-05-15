@@ -11,7 +11,6 @@
 #include "ad_lustre.h"
 #include "adio_extern.h"
 
-
 #ifdef HAVE_LUSTRE_LOCKAHEAD
 /* in ad_lustre_lock.c */
 void ADIOI_LUSTRE_lock_ahead_ioctl(ADIO_File fd,
@@ -232,8 +231,6 @@ int gather_requests(int myrank, int nprocs, ADIO_File fd, const void *buf, int c
     char** local_data, *tmp_buf;
     ADIO_Offset **local_offset_list, **local_len_list, *srt_off, *srt_len;
     ADIO_Offset *srt_displs, **local_displs;
-    double comm_time;
-
     MPI_Type_size_x(datatype, &buftype_size);
     total_send_size = buftype_size * count;
     j = 0;
@@ -244,6 +241,7 @@ int gather_requests(int myrank, int nprocs, ADIO_File fd, const void *buf, int c
     MPI_Address(&contig_access_count, array_of_displacements + 1);
     MPI_Type_create_hindexed(2, array_of_blocklengths, array_of_displacements, MPI_BYTE, &new_type);
     MPI_Type_commit(&new_type);
+
     if ( fd->is_local_aggregator ){
         local_data_size = (MPI_Aint *) ADIOI_Malloc((fd->nprocs_aggregator + 1) * sizeof(MPI_Aint));
         local_contig_access_count = (int *) ADIOI_Malloc((fd->nprocs_aggregator + 1) * sizeof(int));
@@ -260,7 +258,7 @@ int gather_requests(int myrank, int nprocs, ADIO_File fd, const void *buf, int c
                       new_types[i], fd->aggregator_local_ranks[i], fd->aggregator_local_ranks[i] + myrank, fd->comm, &req[j++]);
         }
     }
-    MPI_Isend(MPI_BOTTOM, 1, new_type, fd->process_aggregator_list[myrank], myrank + fd->process_aggregator_list[myrank], fd->comm, &req[j++]);
+    MPI_Isend(MPI_BOTTOM, 1, new_type, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
     MPI_Waitall(j, req, sts);
     MPI_Type_free(&new_type);
     /* Gather data and file offset/lengths pairs to local aggregators */
@@ -318,7 +316,7 @@ int gather_requests(int myrank, int nprocs, ADIO_File fd, const void *buf, int c
                    new_types2,
                    &new_type);
     MPI_Type_commit(&new_type);
-    MPI_Isend(MPI_BOTTOM, 1, new_type, fd->process_aggregator_list[myrank], myrank + fd->process_aggregator_list[myrank], fd->comm, &req[j++]);
+    MPI_Isend(MPI_BOTTOM, 1, new_type, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
     MPI_Waitall(j, req, sts);
     MPI_Type_free(&new_type);
     /* All communications are done, now local aggregators need to work out local data offset (in form of MPI type) and file offset/length pairs. */
@@ -384,7 +382,6 @@ int gather_requests(int myrank, int nprocs, ADIO_File fd, const void *buf, int c
                total_contig_access_count_ptr[0]++;
             }
         }
-
         ADIOI_Free(local_offset_list[0]);
         ADIOI_Free(local_data);
         ADIOI_Free(local_offset_list);
@@ -421,10 +418,11 @@ void ADIOI_LUSTRE_WriteStridedColl(ADIO_File fd, const void *buf, int count,
     ADIO_Offset min_st_loc = -1, max_end_loc = -1;
     ADIO_Offset *offset_list = NULL, *len_list = NULL;
     /*TAM variables*/
-    char* local_buf;
+    char* local_buf = NULL;
     int total_contig_access_count;
     ADIO_Offset *srt_len, *srt_off;
     MPI_Datatype derived_new_type;
+    //Timing variables
 
     MPI_Comm_size(fd->comm, &nprocs);
     MPI_Comm_rank(fd->comm, &myrank);
@@ -450,7 +448,6 @@ void ADIOI_LUSTRE_WriteStridedColl(ADIO_File fd, const void *buf, int count,
         ADIOI_Calc_my_off_len(fd, count, datatype, file_ptr_type, offset,
                               &offset_list, &len_list, &start_offset,
                               &end_offset, &contig_access_count);
-
         /* All processes gather starting and ending file offsets of requests
          * from all processes into st_end_all[]. Even indices of st_end_all[]
          * are start offsets, odd indices are end offsets. st_end_all[] is used
@@ -555,6 +552,7 @@ void ADIOI_LUSTRE_WriteStridedColl(ADIO_File fd, const void *buf, int count,
 
         int *count_my_req_per_proc, count_my_req_procs, count_others_req_procs;
         ADIO_Offset **buf_idx = NULL;
+        /* If all processes are local aggregators, we skip local aggregation phase. */
         if ( fd->local_aggregator_size < nprocs ){
             /*
              * All processes that are not local aggregators has zero contig_access_count to enter to two-phase I/O.
@@ -572,6 +570,7 @@ void ADIOI_LUSTRE_WriteStridedColl(ADIO_File fd, const void *buf, int count,
             contig_access_count = total_contig_access_count;
             datatype = derived_new_type;
         } else{
+            /* Use the original buf to enter two-phase I/O later */
             local_buf = (char*) buf;
         }
 
@@ -582,7 +581,6 @@ void ADIOI_LUSTRE_WriteStridedColl(ADIO_File fd, const void *buf, int count,
         ADIOI_LUSTRE_Calc_my_req(fd, offset_list, len_list, contig_access_count,
                                  striping_info, nprocs, &count_my_req_procs,
                                  &count_my_req_per_proc, &my_req, &buf_idx);
-
         /* Calculate what parts of requests from other processes fall into this
          * process's file domain (note only I/O aggregators are assigned file
          * domains). Inter-process communication is required to construct
@@ -598,17 +596,19 @@ void ADIOI_LUSTRE_WriteStridedColl(ADIO_File fd, const void *buf, int count,
         ADIOI_Calc_others_req(fd, count_my_req_procs, count_my_req_per_proc,
                               my_req, nprocs, myrank, &count_others_req_procs, &others_req);
         ADIOI_Free(count_my_req_per_proc);
-
         /* Two-phase I/O: first communication phase to exchange write data from
          * all processes to the I/O aggregators, followed by the write phase
          * where only I/O aggregators write to the file. There is no collective
          * MPI communication in ADIOI_LUSTRE_Exch_and_write(), only MPI_Issend,
          * MPI_Irecv, and MPI_Waitall.
          */
+
         ADIOI_LUSTRE_Exch_and_write(fd, local_buf, datatype, nprocs, myrank,
                                     others_req, my_req, offset_list, len_list,
                                     min_st_loc, max_end_loc,
                                     contig_access_count, striping_info, buf_idx, error_code);
+
+        /* Local aggregators clean up the local aggregated buffer in the end. */
         if( fd->is_local_aggregator && fd->local_aggregator_size < nprocs ){
             ADIOI_Free(local_buf);
         }
@@ -1083,7 +1083,6 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
     MPI_Request *requests;
     MPI_Status status;
     static char myname[] = "ADIOI_LUSTRE_W_EXCHANGE_DATA";
-
     /* calculate send receive metadata */
     *srt_num = 0;
     sum_recv = 0;
@@ -1092,12 +1091,13 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
     for (i = 0; i < nprocs; i++) {
         *srt_num += recv_count[i];
         sum_recv += recv_size[i];
-        if (recv_size[i])
+        if (recv_size[i]) {
             nprocs_recv++;
-        if (send_size[i])
+        }
+        if (send_size[i]) {
             nprocs_send++;
+        }
     }
-
     /* determine whether checking holes is necessary */
     check_hole = 1;
     if (*srt_num == 0) {
@@ -1137,10 +1137,8 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
             *srt_len = (int *) ADIOI_Malloc(*srt_num * sizeof(int));
             malloc_srt_num = *srt_num;
         }
-
         heap_merge(others_req, recv_count, *srt_off, *srt_len, start_pos,
                    nprocs, nprocs_recv, srt_num);
-
         /* (*srt_num) has been updated in heap_merge() such that (*srt_off) and
          * (*srt_len) were coalesced
          */
@@ -1198,7 +1196,6 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
         _ptr += mem_lens[_k];                                       \
     }                                                               \
 }
-
     /* nreqs is the number of Issend and Irecv to be posted */
     nreqs = 0;
     if (fd->atomicity) {

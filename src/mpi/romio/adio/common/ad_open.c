@@ -30,6 +30,7 @@ void stringSort(char *arr[], int n)
     qsort (arr, n, sizeof (char *), myCompareString);
 }
 
+
 /*
   This function reorder the global aggregators in a round robin fashion.  
 
@@ -37,9 +38,9 @@ void stringSort(char *arr[], int n)
        1. process_node_list: mapping from process to the node index it belongs.
        2. cb_nodes: global aggregator size.
        3. nrecvs: number of physical nodes.
-       4. info: MPI info in the file descriptor. Just for consistent printout.
   Output:
        1. ranklist: global aggregators.
+       2. info: MPI info in the file descriptor. We modify it just for consistent printout.
 */
 int reorder_ranklist(int *process_node_list, int *ranklist, int cb_nodes, int nrecvs, MPI_Info info){
     int i, j, incr, remain;
@@ -109,7 +110,7 @@ int reorder_ranklist(int *process_node_list, int *ranklist, int cb_nodes, int nr
        3. comm: a communicator comm that contains this process.
        4. orig_comm: For some reason, ADIOI_cb_gather_name_array requires an extra communicator, we just give it.
   Output:
-       1. nrecvs : An integer that tells how many nodes we have.
+       1. nrecvs : The number of compute nodes.
        2. process_node_list : An array (size nprocs) that maps a process to a node (the node index correspond to the order of global receivers)
 */
 int gather_node_information(int rank, int nprocs,int *nrecvs, int **process_node_list, MPI_Comm comm, MPI_Comm orig_comm){
@@ -166,6 +167,16 @@ int gather_node_information(int rank, int nprocs,int *nrecvs, int **process_node
     return 0;
 }
 
+/*
+  Input:
+       1. rank: process rank with respect to communicator comm.
+       2. process_node_list : An array (size nprocs) that maps a process to a node (the node index correspond to the order of global receivers)
+       3. nrecvs : The number of compute nodes.
+       4. global_aggregator_size: The value of cb_nodes, which is the global aggregator size.
+       5. global_aggregators: Original list of global aggregators
+  Output:
+       1. global_aggregators_new: Reordered global aggregators.
+*/
 int spreadout_global_aggregators(int rank, int *process_node_list, int nprocs, int nrecvs, int global_aggregator_size, int* global_aggregators, int** global_aggregators_new){
     int i, j, k, local_node_process_size, local_node_aggregator_size, remainder, temp1, temp2;
     int* check_global_aggregators = (int*) ADIOI_Calloc(nprocs,sizeof(int));
@@ -195,6 +206,7 @@ int spreadout_global_aggregators(int rank, int *process_node_list, int nprocs, i
                 }
             }
         }
+        /* Spreadout evenly */
         if (local_node_aggregator_size) {
             remainder = local_node_process_size % local_node_aggregator_size;
             temp1 = (local_node_process_size + local_node_aggregator_size - 1) / local_node_aggregator_size;
@@ -225,18 +237,20 @@ int spreadout_global_aggregators(int rank, int *process_node_list, int nprocs, i
      5. global_aggregator_size: size of global_aggregators.
      6. global_aggregators: an array of all aggregators.
      7. co: number of local aggregators per node.
-     8 mode: 0: local aggregators are evenly spreadout on a node. 1: local aggregators try to occupy the superset of global aggregators
+     8 mode: 0: local aggregators are evenly spreadout on a node. 1: local aggregators try to be a superset/subset of global aggregators
   Output:
-     1. is_aggregator_new: if this process is an aggregator in new context.
-     2. local_aggregator_size: length of local_aggregators
-     3. local_aggregators: an array of new global aggregators (must be a superset of global aggregators)
-     4. nprocs_aggregator: length of aggregator_local_ranks
-     5. aggregator_local_ranks: an array that tells what ranks this aggregator is responsible for performing proxy communication. (only significant if this process is an aggregator)
-     6. aggregator_process_list: mapping from a process rank to the aggregator responsible for sending its data to other aggregators.
+     1. is_aggregator_new: if this process is a local aggregator.
+     2. local_aggregator_size: length of local_aggregators (the size of local aggergator list)
+     3. local_aggregators: an array of local aggregators (the local aggregator list)
+     4. nprocs_aggregator: length of aggregator_local_ranks (only significant for local aggregators)
+     5. aggregator_local_ranks: an array that tells what ranks this aggregator is responsible for performing proxy communication. (only significant for local aggregators)
+     6. local_aggregator_domain: aggregator_local_ranks array for all local aggregators. (only significant for global aggregators)
+     7. local_aggregator_domain_size: an array for the size of individual array of local_aggregator_domain. (only significant for local aggregators)
+     8. my_local_aggregator: which local aggregator I will send to.
 */
-int aggregator_meta_information(int rank, int *process_node_list, int nprocs, int nrecvs, int global_aggregator_size, int *global_aggregators, int co, int* is_aggregator_new, int* local_aggregator_size, int **local_aggregators, int* nprocs_aggregator, int **aggregator_local_ranks, int **process_aggregator_list, int mode){
-    int i, j, k, local_node_aggregator_size, local_node_process_size, *local_node_aggregators, *temp_local_ranks, *check_local_aggregators, *check_global_aggregators, temp1, temp2, temp3, base, remainder, co2, test, *ptr;
-    process_aggregator_list[0] = (int*) ADIOI_Malloc(sizeof(int)*nprocs);
+int aggregator_meta_information(int rank, int *process_node_list, int nprocs, int nrecvs, int global_aggregator_size, int *global_aggregators, int co, int* is_aggregator_new, int* local_aggregator_size, int **local_aggregators, int* nprocs_aggregator, int **aggregator_local_ranks, int ***local_aggregator_domain, int **local_aggregator_domain_size, int *my_local_aggregator, int mode){
+    int i, j, k, local_node_aggregator_size, local_node_process_size, *local_node_aggregators, *temp_local_ranks, *check_local_aggregators, *check_global_aggregators, *process_aggregator_list, temp1, temp2, temp3, base, remainder, co2, test, *ptr;
+    process_aggregator_list = (int*) ADIOI_Malloc(sizeof(int)*nprocs);
     local_node_aggregators = (int*) ADIOI_Malloc(sizeof(int)*nprocs);
     temp_local_ranks = (int*) ADIOI_Malloc(sizeof(int)*nprocs);
     check_global_aggregators = (int*) ADIOI_Calloc(nprocs,sizeof(int));
@@ -296,7 +310,7 @@ int aggregator_meta_information(int rank, int *process_node_list, int nprocs, in
                 temp2 = local_node_aggregator_size;
                 /* Go through all local processes. fill the local aggregator array up to the number of element co2 */
                 for ( j = 0; j < local_node_process_size; j++ ){
-                    /* Make sure that the added ranks do not repeat with the exiting aggregator ranks*/
+                    /* Make sure that the added ranks do not repeat with the existing aggregator ranks*/
                     test = 1;
                     for ( k = 0; k < temp2; k++ ){
                         if( temp_local_ranks[j] == local_node_aggregators[k]){
@@ -364,7 +378,7 @@ int aggregator_meta_information(int rank, int *process_node_list, int nprocs, in
                 */
                 for ( k = 0; k < temp3; ++k ){
                     if ( k == temp3 -1 && test ){
-                        process_aggregator_list[0][ local_node_aggregators[j] ] = local_node_aggregators[j];
+                        process_aggregator_list[ local_node_aggregators[j] ] = local_node_aggregators[j];
                         break;
                     }
                     while ( (check_local_aggregators[temp_local_ranks[base]] && temp_local_ranks[base] != local_node_aggregators[j]) ){
@@ -373,28 +387,53 @@ int aggregator_meta_information(int rank, int *process_node_list, int nprocs, in
                     if (check_local_aggregators[temp_local_ranks[base]]){
                         test = 0;
                     }
-                    process_aggregator_list[0][ temp_local_ranks[base] ] = local_node_aggregators[j];
+                    process_aggregator_list[ temp_local_ranks[base] ] = local_node_aggregators[j];
                     base++;
                 }
             }
         }
     }
-    /* if this process is an aggregator (in context of enlarged aggregator list), work out the process ranks that it is responsible for.*/
+    *my_local_aggregator = process_aggregator_list[rank];
+    /* if this process is a local aggregator, work out the process ranks that it is responsible for.*/
     if (is_aggregator_new[0]){
         for ( i = 0; i < nprocs; ++i ){
-            if (process_aggregator_list[0][i] == rank ){
+            if (process_aggregator_list[i] == rank ){
                 nprocs_aggregator[0]++;
             }
         }
         aggregator_local_ranks[0] = (int*) ADIOI_Malloc(nprocs_aggregator[0]*sizeof(int));
         j = 0;
         for ( i = 0; i < nprocs; ++i ){
-            if (process_aggregator_list[0][i] == rank ){
+            if (process_aggregator_list[i] == rank ){
                 aggregator_local_ranks[0][j] = i;
                 j++;
             }
         }
     }
+    if (check_global_aggregators[rank]) {
+        /* Global aggregators must know which process is handled by which local aggregator in order to unpack the data */
+        *local_aggregator_domain = (int**) ADIOI_Malloc(local_aggregator_size[0]*sizeof(int*));
+        *local_aggregator_domain_size = (int*) ADIOI_Malloc(local_aggregator_size[0]*sizeof(int));
+        memset(temp_local_ranks, 0, sizeof(int) * nprocs);
+        local_aggregator_domain[0][0] = (int*) ADIOI_Malloc(nprocs * sizeof(int));
+        for ( i = 0; i < nprocs; ++i) {
+            temp_local_ranks[process_aggregator_list[i]]++;
+        }
+        for ( i = 0; i < local_aggregator_size[0]; ++i ) {
+            if (i) {
+                local_aggregator_domain[0][i] = local_aggregator_domain[0][i - 1] + local_aggregator_domain_size[0][i - 1];
+            }
+            local_aggregator_domain_size[0][i] = temp_local_ranks[local_aggregators[0][i]];
+            j = 0;
+            for ( k = 0; k < nprocs; ++k ) {
+                if (process_aggregator_list[k] == local_aggregators[0][i] ){
+                    local_aggregator_domain[0][i][j] = k;
+                    j++;
+                }
+            }
+        }
+    }
+    ADIOI_Free(process_aggregator_list);
     ADIOI_Free(local_node_aggregators);
     ADIOI_Free(temp_local_ranks);
     ADIOI_Free(check_local_aggregators);
@@ -404,8 +443,8 @@ int aggregator_meta_information(int rank, int *process_node_list, int nprocs, in
 
 int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, int nprocs){
     char *p;
-    int *global_aggregators_new, *process_aggregator_list, *local_aggregators, *aggregator_local_ranks, is_local_aggregator = 0, i;
-    int local_aggregator_size, nprocs_aggregator, co;
+    int *global_aggregators_new, i;
+    int co;
 
     /*TAM rank list preparation*/
     p=getenv("ROMIO_LOCAL_AGGREGATOR_CO");
@@ -414,45 +453,59 @@ int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, in
     } else{
         co = atoi(p);
     }
-
-    aggregator_meta_information(rank, process_node_list, nprocs, nrecvs, fd->hints->cb_nodes, fd->hints->ranklist, co, &is_local_aggregator, &local_aggregator_size, &local_aggregators, &nprocs_aggregator, &aggregator_local_ranks, &process_aggregator_list, 0);
-    fd->nprocs_aggregator = nprocs_aggregator;
-    fd->local_aggregator_size = local_aggregator_size;
-    fd->is_local_aggregator = is_local_aggregator;
-    fd->aggregator_local_ranks = aggregator_local_ranks;
-    fd->local_aggregators = local_aggregators;
-    fd->process_aggregator_list = process_aggregator_list;
-
     /* We spreadout the global aggregators within a node (keeping the same number of global aggregators per node)*/
+
     spreadout_global_aggregators(rank, process_node_list, nprocs, nrecvs, fd->hints->cb_nodes, fd->hints->ranklist, &global_aggregators_new);
     if (fd->hints->cb_nodes > 0){
         ADIOI_Free(fd->hints->ranklist);
     }
-    /* Need to update some local variables.*/
+
+    /* Need to update some global variables.*/
+
     fd->hints->ranklist = global_aggregators_new;
     fd->my_cb_nodes_index = -2;
     fd->is_agg = is_aggregator(rank, fd);
 
     /* Reorder the array of global aggregators according to node robin style*/
     reorder_ranklist(process_node_list, fd->hints->ranklist, fd->hints->cb_nodes, nrecvs, fd->info);
-    /* Now we do not need the process_node_list anymore, let us free it. */
-    ADIOI_Free(process_node_list);
 
-    /* Prepare TAM temporary variables. (so they are used later without repeated mallocs.)*/
-    if (is_local_aggregator||fd->is_agg){
+    /* Construct arrays required by TAM */
+    aggregator_meta_information(rank, process_node_list, nprocs, nrecvs, fd->hints->cb_nodes, fd->hints->ranklist, co, &(fd->is_local_aggregator), &(fd->local_aggregator_size), &(fd->local_aggregators), &(fd->nprocs_aggregator), &(fd->aggregator_local_ranks), &(fd->local_aggregator_domain), &(fd->local_aggregator_domain_size), &(fd->my_local_aggregator), 0);
+
+    /* Prepare TAM temporary variables. (so they are used later without repeated mallocs.) */
+    fd->local_buf = NULL;
+    fd->local_buf_size = 0;
+    fd->cb_send_size = (int*) ADIOI_Malloc(sizeof(int) * fd->hints->cb_nodes);
+
+    if (fd->is_local_aggregator||fd->is_agg){
         i = 0;
         if (fd->is_agg){
-            i += local_aggregator_size;
+            /* Workout my global aggregator index, works the same as cb_node_index */
+            for ( i = 0; i < fd->hints->cb_nodes; ++i ) {
+                if (fd->hints->ranklist[i] == rank) {
+                    fd->global_aggregator_index = i;
+                    break;
+                }
+            }
+            fd->global_recv_size = (MPI_Aint*) ADIOI_Malloc(sizeof(MPI_Aint) * fd->local_aggregator_size);
+            i += fd->local_aggregator_size;
         }
-        if (is_local_aggregator){
-            fd->local_send_size = (int*) ADIOI_Malloc(sizeof(int) * nprocs * nprocs_aggregator);
-            fd->local_lens = (MPI_Aint*) ADIOI_Malloc(sizeof(MPI_Aint) * nprocs * nprocs_aggregator);
+        if (fd->is_local_aggregator){
+            /* Used when local aggregators send data to global aggregators 
+             * Wrap data to he same destination all at once. */
+            fd->array_of_displacements = (MPI_Aint*) ADIOI_Malloc(fd->nprocs_aggregator * sizeof(MPI_Aint));
+            fd->array_of_blocklengths = (int*) ADIOI_Malloc(fd->nprocs_aggregator * sizeof(int));
             fd->new_types = (MPI_Datatype*) ADIOI_Malloc(fd->hints->cb_nodes * sizeof(MPI_Datatype));
+            /* Used to store prefix-sum (inclusive) of local_send_size, we want to be extra careful to not to overflow integers. */
+            fd->local_lens = (MPI_Aint*) ADIOI_Malloc(sizeof(MPI_Aint) * nprocs * fd->nprocs_aggregator);
+            fd->local_send_size = (int*) ADIOI_Malloc(sizeof(int) * fd->hints->cb_nodes * fd->nprocs_aggregator);
             i += fd->hints->cb_nodes;
         }
-        if (nprocs_aggregator > i && is_local_aggregator){
-            fd->req = (MPI_Request *) ADIOI_Malloc((nprocs_aggregator + 1) * sizeof(MPI_Request));
-            fd->sts = (MPI_Status *) ADIOI_Malloc((nprocs_aggregator + 1) * sizeof(MPI_Status));
+        /* status and request variables used by TAM, we malloc once.
+         * The size is either maximum inter-node or intra-node communication size, depending on which is larger. */
+        if (fd->nprocs_aggregator > i && fd->is_local_aggregator){
+            fd->req = (MPI_Request *) ADIOI_Malloc((fd->nprocs_aggregator + 1) * sizeof(MPI_Request));
+            fd->sts = (MPI_Status *) ADIOI_Malloc((fd->nprocs_aggregator + 1) * sizeof(MPI_Status));
         } else{
             fd->req = (MPI_Request *) ADIOI_Malloc((i + 1) * sizeof(MPI_Request));
             fd->sts = (MPI_Status *) ADIOI_Malloc((i + 1) * sizeof(MPI_Status));
@@ -461,8 +514,6 @@ int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, in
         fd->req = (MPI_Request *) ADIOI_Malloc(sizeof(MPI_Request));
         fd->sts = (MPI_Status *) ADIOI_Malloc(sizeof(MPI_Status));
     }
-    fd->array_of_displacements = (MPI_Aint*) ADIOI_Malloc(nprocs * sizeof(MPI_Aint));
-    fd->array_of_blocklengths = (int*) ADIOI_Malloc(nprocs * sizeof(int));
     return 0;
 }
 
@@ -593,11 +644,11 @@ ADIO_File ADIO_Open(MPI_Comm orig_comm,
             MPI_Info_create(&ADIOI_syshints);
         ADIOI_process_system_hints(fd, ADIOI_syshints);
     }
-    // The number of physical node is used to determine cb_nodes for lustre case
-    //sprintf(key_val,"%d",nrecvs);
+    /* The number of physical node is used to determine cb_nodes for lustre case */
     MPL_snprintf(key_val, MPI_MAX_INFO_VAL + 1, "%d", nrecvs);
     ADIOI_Info_set(ADIOI_syshints, "number_of_nodes", key_val);
-    // Environmental setting for testing purpose with highest priority.
+    /* Environmental setting for testing purpose with highest priority.
+     * This is convenient for usage.n*/
     p=getenv("ROMIO_cb_nodes");
     if (p!=NULL){
         ADIOI_Info_set(ADIOI_syshints, "cb_nodes", p);
@@ -607,7 +658,7 @@ ADIO_File ADIO_Open(MPI_Comm orig_comm,
     if (p!=NULL){
         ADIOI_Info_set(ADIOI_syshints, "cb_config_list", p);
     }
-    /* For Lustre hints, we need to actually open the file before the colletive open function.
+    /* For Lustre hints related to global aggregators, we need to actually open the file before the colletive open function.
      * We use the original access mode. If it does not work, we just forget about the hints. */
     fd->access_mode = access_mode;
 
@@ -652,7 +703,14 @@ ADIO_File ADIO_Open(MPI_Comm orig_comm,
     fd->my_cb_nodes_index = -2;
     fd->is_agg = is_aggregator(rank, fd);
 
+    /* Setup global aggregators and local aggregators.
+     * A lot of things is done to global aggregator list, but the number should still be the same as current one.
+     */
     set_tam_hints(fd, rank, process_node_list, nrecvs, procs);
+
+    /* Now we do not need the process_node_list anymore, let us free it. */
+    ADIOI_Free(process_node_list);
+
     /* deferred open used to split the communicator to create an "aggregator
      * communicator", but we only used it as a way to indicate that deferred
      * open happened.  fd->is_open and fd->is_agg are sufficient */
