@@ -100,6 +100,13 @@ static void ADIOI_LUSTRE_IterateOneSided(ADIO_File fd, const void *buf, int *str
                                          ADIO_Offset firstFileOffset, ADIO_Offset lastFileOffset,
                                          MPI_Datatype datatype, int myrank, int *error_code);
 
+void ADIOI_LUSTRE_Calc_others_req(ADIO_File fd, int count_my_req_procs,
+                           int *count_my_req_per_proc,
+                           ADIOI_Access * my_req,
+                           int nprocs, int myrank,
+                           int *count_others_req_procs_ptr, ADIOI_Access ** others_req_ptr);
+
+
 void ADIOI_LUSTRE_WriteStridedColl(ADIO_File fd, const void *buf, int count,
                                    MPI_Datatype datatype,
                                    int file_ptr_type, ADIO_Offset offset,
@@ -268,7 +275,9 @@ void ADIOI_LUSTRE_WriteStridedColl(ADIO_File fd, const void *buf, int count,
          * count_others_req_per_proc[i] indicates how many noncontiguous
          * requests from process i that fall into this process's file domain.
          */
-        ADIOI_Calc_others_req(fd, count_my_req_procs, count_my_req_per_proc,
+        //ADIOI_Calc_others_req(fd, count_my_req_procs, count_my_req_per_proc,
+        //                      my_req, nprocs, myrank, &count_others_req_procs, &others_req);
+        ADIOI_LUSTRE_Calc_others_req(fd, count_my_req_procs, count_my_req_per_proc,
                               my_req, nprocs, myrank, &count_others_req_procs, &others_req);
         ADIOI_Free(count_my_req_per_proc);
 
