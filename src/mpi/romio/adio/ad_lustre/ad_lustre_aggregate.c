@@ -142,6 +142,9 @@ void ADIOI_LUSTRE_Calc_my_req(ADIO_File fd, ADIO_Offset * offset_list,
     size_t memLen;
     ADIO_Offset avail_len, rem_len, curr_idx, off, **buf_idx, *ptr;
     ADIOI_Access *my_req;
+    int myrank;
+
+    MPI_Comm_rank(fd->comm, &myrank);
 
     *count_my_req_per_proc_ptr = (int *) ADIOI_Calloc(nprocs, sizeof(int));
     count_my_req_per_proc = *count_my_req_per_proc_ptr;
@@ -206,8 +209,8 @@ void ADIOI_LUSTRE_Calc_my_req(ADIO_File fd, ADIO_Offset * offset_list,
     *my_req_ptr = (ADIOI_Access *) ADIOI_Malloc(nprocs * sizeof(ADIOI_Access));
     my_req = *my_req_ptr;
     my_req[0].offsets = ptr;
-
     count_my_req_procs = 0;
+#if 1==2
     for (i = 0; i < nprocs; i++) {
         if (count_my_req_per_proc[i]) {
             my_req[i].offsets = ptr;
@@ -217,6 +220,41 @@ void ADIOI_LUSTRE_Calc_my_req(ADIO_File fd, ADIO_Offset * offset_list,
             count_my_req_procs++;
         }
         my_req[i].count = 0;    /* will be incremented where needed later */
+    }
+#endif
+
+    for ( i = 0; i < nprocs; ++i ) {
+        my_req[i].count = 0;
+    }
+    fd->my_req_buf = (char*) ptr;
+    /* nprocs >=2 for this case, we are pretty safe to put send_buf[myrank] into the end. */
+    if (fd->is_agg) {
+        for (i = 0; i < fd->hints->cb_nodes; i++) {
+            if (fd->hints->ranklist[i] != myrank && count_my_req_per_proc[fd->hints->ranklist[i]]) {
+                my_req[fd->hints->ranklist[i]].offsets = ptr;
+                ptr += count_my_req_per_proc[fd->hints->ranklist[i]];
+                my_req[fd->hints->ranklist[i]].lens = ptr;
+                ptr += count_my_req_per_proc[fd->hints->ranklist[i]];
+                count_my_req_procs++;
+            }
+        }
+        if (count_my_req_per_proc[myrank]) {
+            my_req[myrank].offsets = ptr;
+            ptr += count_my_req_per_proc[myrank];
+            my_req[myrank].lens = ptr;
+            ptr += count_my_req_per_proc[myrank];
+            count_my_req_procs++;
+        }
+    } else {
+        for (i = 0; i < fd->hints->cb_nodes; i++) {
+            if (count_my_req_per_proc[fd->hints->ranklist[i]]) {
+                my_req[fd->hints->ranklist[i]].offsets = ptr;
+                ptr += count_my_req_per_proc[fd->hints->ranklist[i]];
+                my_req[fd->hints->ranklist[i]].lens = ptr;
+                ptr += count_my_req_per_proc[fd->hints->ranklist[i]];
+                count_my_req_procs++;
+            }
+        }
     }
 
     /* now fill in my_req */

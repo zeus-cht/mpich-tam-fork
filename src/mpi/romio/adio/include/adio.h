@@ -235,6 +235,10 @@ typedef struct ADIOI_FileD {
 
 
     /* Hint variables used by TAM */
+    char *my_req_buf;
+    char *other_req_buf;
+    char *other_req_mem;
+
     int *global_aggregators;
 
     int nprocs_aggregator;

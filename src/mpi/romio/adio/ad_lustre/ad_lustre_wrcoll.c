@@ -284,8 +284,12 @@ void ADIOI_LUSTRE_WriteStridedColl(ADIO_File fd, const void *buf, int count,
                                     contig_access_count, striping_info, buf_idx, error_code);
 
         /* free all memory allocated */
+/*
         ADIOI_Free(others_req[0].offsets);
         ADIOI_Free(others_req[0].mem_ptrs);
+*/
+        ADIOI_Free(fd->other_req_mem);
+        ADIOI_Free(fd->other_req_buf);
         ADIOI_Free(others_req);
         /* freeing buf_idx[0] also frees my_req[*].offsets and my_req[*].lens */
         ADIOI_Free(buf_idx[0]);
