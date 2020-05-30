@@ -11,7 +11,7 @@
 
 #include "mpio.h"
 
-#define ROMIO_TOTAL_LOCAL_AGGREGATOR_DEFAULT 512
+#define ROMIO_TOTAL_LOCAL_AGGREGATOR_DEFAULT 256
 
 static int is_aggregator(int rank, ADIO_File fd);
 static int uses_generic_read(ADIO_File fd);
