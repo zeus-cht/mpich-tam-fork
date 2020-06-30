@@ -539,7 +539,6 @@ int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, in
     /* Timers and environmental variables */
     fd->local_aggregator_size = nprocs;
 
-    MPI_Comm_dup(fd->comm, &(fd->signal_comm));
     p=getenv("ROMIO_COMM_LIMIT");
     if (p==NULL){
         fd->comm_limit = 32;

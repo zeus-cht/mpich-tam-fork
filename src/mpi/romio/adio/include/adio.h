@@ -233,7 +233,6 @@ typedef struct ADIOI_FileD {
     /* External32 */
     int is_external32;          /* bool:  0 means native view */
 
-    MPI_Comm signal_comm;              /* communicator duplicated from comm*/
 
     int local_aggregator_size;
     int *global_aggregators;

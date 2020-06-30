@@ -450,6 +450,9 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
      * count_others_req_per_proc[i] indicates how many separate contiguous
      * requests of proc. i lie in this process's file domain.
      */
+    if (fd->try_barrier) {
+        MPI_Barrier(fd->comm);
+    }
     #if QIAO_DEBUG == 1
     compute_time = MPI_Wtime();
     #endif
@@ -875,6 +878,9 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
         MPE_Log_event(14, 0, "end computation");
         MPE_Log_event(7, 0, "start communication");
 #endif
+        if (fd->try_barrier) {
+            MPI_Barrier(fd->comm);
+        }
         #if QIAO_DEBUG == 1
         comm_time=MPI_Wtime();
         #endif
@@ -973,8 +979,14 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
 #ifdef PROFILE
     MPE_Log_event(7, 0, "start communication");
 #endif
-    for (m = ntimes; m < max_ntimes; m++)
+    for (m = ntimes; m < max_ntimes; m++) {
         /* nothing to recv, but check for send. */
+        if (fd->try_barrier) {
+            MPI_Barrier(fd->comm);
+        }
+        #if QIAO_DEBUG == 1
+        comm_time=MPI_Wtime();
+        #endif
         if (gpfsmpio_comm == 1)
             ADIOI_W_Exchange_data(fd, buf, write_buf, flat_buf, offset_list,
                                   len_list, send_size, recv_size, off, size, count,
@@ -995,6 +1007,10 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
                                             others_req, send_buf_idx,
                                             curr_to_proc, done_to_proc, &hole, m,
                                             buftype_extent, buf_idx, error_code);
+        #if QIAO_DEBUG == 1
+        fd->total_inter_time += MPI_Wtime()-comm_time;
+        #endif
+    }
     if (*error_code != MPI_SUCCESS)
         return;
 #ifdef PROFILE
@@ -1675,8 +1691,10 @@ static void ADIOI_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, char 
 
     io_time = MPI_Wtime();
     /* alltoallv */
-    all_to_all_selection(send_buf, all_send_buf, send_size, recv_size, sdispls, rdispls,
-                         dtypes, all_recv_buf, nprocs_recv, fd->alltoall_type_write, fd, myrank, nprocs, requests);
+    //all_to_all_selection(send_buf, all_send_buf, send_size, recv_size, sdispls, rdispls,
+    //                     dtypes, all_recv_buf, nprocs_recv, fd->alltoall_type_write, fd, myrank, nprocs, requests);
+    MPI_Alltoallv(all_send_buf, send_size, sdispls, MPI_BYTE,
+                  all_recv_buf, recv_size, rdispls, MPI_BYTE, fd->comm);
     ADIOI_Free(dtypes);
     ADIOI_Free(requests);
     ADIOI_Free(send_buf);

@@ -36,12 +36,12 @@ int all_to_many_pairwise(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
                           char *recv_buf, int *recv_size, int *rdispls,
                           MPI_Datatype *rdtypes, int rank, int procs, ADIO_File fd,
                           MPI_Request *requests, int isagg);
-
+/*
 int all_to_many_balanced_control(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
                           char *recv_buf, int *recv_size, int *rdispls,
                           MPI_Datatype *rdtypes, int rank, int procs, ADIO_File fd,
                           MPI_Request *requests, int isagg);
-
+*/
 int all_to_many_balanced(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
                           char *recv_buf, int *recv_size, int *rdispls,
                           MPI_Datatype *rdtypes, int rank, int procs, ADIO_File fd,
@@ -475,7 +475,7 @@ int all_to_many_original_isend(char **send_buf, int *send_size, MPI_Datatype *sd
         }
     }
     if (j) {
-        MPI_Waitall(j, requests, MPI_STATUS_IGNORE);
+        MPI_Waitall(j, requests, MPI_STATUSES_IGNORE);
     }
     return 0;
 }
@@ -499,7 +499,7 @@ int all_to_many_original(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
         }
     }
     if (j) {
-        MPI_Waitall(j, requests, MPI_STATUS_IGNORE);
+        MPI_Waitall(j, requests, MPI_STATUSES_IGNORE);
     }
     return 0;
 }
@@ -522,7 +522,7 @@ int all_to_many_simple(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
         }
     }
     if (j) {
-        MPI_Waitall(j, requests, MPI_STATUS_IGNORE);
+        MPI_Waitall(j, requests, MPI_STATUSES_IGNORE);
     }
     return 0;
 }
@@ -539,9 +539,6 @@ int all_to_many_scatter(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
     }
     bblock = comm_size;
     comm_size = procs;
-    if (bblock == 0) {
-        bblock = comm_size;
-    }
     for (ii = 0; ii < comm_size; ii += bblock) {
         ss = comm_size - ii < bblock ? comm_size - ii : bblock;
         /* do the communication -- post ss sends and receives: */
@@ -560,7 +557,7 @@ int all_to_many_scatter(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
             }
         }
         if (j) {
-            MPI_Waitall(j, requests, MPI_STATUS_IGNORE);
+            MPI_Waitall(j, requests, MPI_STATUSES_IGNORE);
         }
     }
     return 0;
@@ -606,7 +603,7 @@ int all_to_many_pairwise(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
     }
     return 0;
 }
-
+/*
 int all_to_many_balanced_control(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
                           char *recv_buf, int *recv_size, int *rdispls,
                           MPI_Datatype *rdtypes, int rank, int procs, ADIO_File fd,
@@ -682,12 +679,12 @@ int all_to_many_balanced_control(char **send_buf, int *send_size, MPI_Datatype *
             send_start = (send_start - 1 + cb_nodes) % cb_nodes;
         }
         if (j) {
-            MPI_Waitall(j, requests, MPI_STATUS_IGNORE);
+            MPI_Waitall(j, requests, MPI_STATUSES_IGNORE);
         }
     }
     return 0;
 }
-
+*/
 /*
  * We want to know who is receiving data in this iteration for better performance.
  * Everyone gather the tag if it is a global aggregator and perform a huge allgather.
@@ -787,7 +784,7 @@ int all_to_many_balanced(char **send_buf, int *send_size, MPI_Datatype *sdtypes,
             send_start = (send_start - 1 + cb_nodes) % cb_nodes;
         }
         if (j) {
-            MPI_Waitall(j, requests, MPI_STATUS_IGNORE);
+            MPI_Waitall(j, requests, MPI_STATUSES_IGNORE);
         }
     }
     return 0;
@@ -833,11 +830,13 @@ int all_to_all_selection(char** send_buf, char *send_buf_start, int* send_size, 
             break;
         }
         case 5:{
+/*
             all_to_many_balanced_control(send_buf, send_size, dtypes,
                       recv_buf_ptr, recv_size, rdispls,
                       dtypes, myrank, nprocs, fd,
                       requests, isagg);
             break;
+*/
         }
         case 6:{
             all_to_many_original_isend(send_buf, send_size, dtypes,
@@ -1056,6 +1055,7 @@ void ADIOI_Calc_others_req(ADIO_File fd, int count_my_req_procs,
     all_to_all_selection(send_buf, send_buf[0], send_size, recv_size, sdispls, rdispls,
                          dtypes, recv_buf_ptr, count_others_req_procs, fd->alltoall_type_meta, fd, myrank, nprocs, requests);
 
+    ADIOI_Free(send_buf);
     ADIOI_Free(dtypes);
     ADIOI_Free(sdispls);
     ADIOI_Free(requests);

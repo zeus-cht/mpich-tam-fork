@@ -13,8 +13,9 @@
 
 #define TIMER_SIZE 18
 
-int write_logs(ADIO_File fd){
+int write_logs(ADIO_File fd, double *max_times){
     int nprocs;
+    double temp;
     MPI_Comm_size(fd->comm, &nprocs);
     char filename[1024];
     sprintf(filename,"collective_write_results_%d.csv",nprocs);
@@ -49,12 +50,14 @@ int write_logs(ADIO_File fd){
 
         fprintf(stream,"calc my request,");
         fprintf(stream,"calc other request,");
+        fprintf(stream,"calc other request max,");
 
         fprintf(stream,"inter type,");
         fprintf(stream,"inter heap sort,");
         fprintf(stream,"inter unpack,");
         fprintf(stream,"inter data sieving,");
         fprintf(stream,"inter wait data,");
+        fprintf(stream,"inter wait data max,");
         fprintf(stream,"inter total,");
 
         fprintf(stream,"I/O,");
@@ -92,12 +95,14 @@ int write_logs(ADIO_File fd){
 
     fprintf(stream,"%lf,",fd->calc_my_request_time);
     fprintf(stream,"%lf,",fd->calc_other_request_time);
+    fprintf(stream,"%lf,",max_times[0]);
 
     fprintf(stream,"%lf,",fd->inter_type_time);
     fprintf(stream,"%lf,",fd->inter_heap_time);
     fprintf(stream,"%lf,",fd->inter_unpack_time);
     fprintf(stream,"%lf,",fd->inter_ds_time);
     fprintf(stream,"%lf,",fd->inter_wait_time);
+    fprintf(stream,"%lf,",max_times[1]);
     fprintf(stream,"%lf,",fd->total_inter_time);
 
     fprintf(stream,"%lf,",fd->io_time);
@@ -324,10 +329,10 @@ int comm_logs(ADIO_File fd, MPI_Count **request_sum_ptr, MPI_Count **request_sum
     return 0;
 }
 
-int write_timings(ADIO_File fd, int myrank, MPI_Count **request_sum, MPI_Count **request_sum2, int is_write){
+int write_timings(ADIO_File fd, int myrank, MPI_Count **request_sum, MPI_Count **request_sum2, int is_write, double *max_times){
     if (myrank == 0){
         if ( is_write ){
-            write_logs(fd);
+            write_logs(fd, max_times);
         }else{
             read_logs(fd);
         }
@@ -338,6 +343,7 @@ int write_timings(ADIO_File fd, int myrank, MPI_Count **request_sum, MPI_Count *
 
 int print_timing_results(ADIO_File fd, int myrank, int is_write){
     MPI_Comm new_comm;
+    double max_times[2];
     int color;
     MPI_Count request_sum[2];
     MPI_Count request_count[2];
@@ -393,6 +399,10 @@ int print_timing_results(ADIO_File fd, int myrank, int is_write){
     request_count_ptr[2][6] = fd->read_data_recv_count;
     request_count_ptr[2][7] = fd->gathered_request_count;
 
+
+    MPI_Reduce( &(fd->calc_other_request_time), max_times, 1, MPI_DOUBLE, MPI_MAX, 0, fd->comm);
+    MPI_Reduce( &(fd->inter_wait_time), max_times + 1, 1, MPI_DOUBLE, MPI_MAX, 0, fd->comm);
+
     MPI_Reduce( request_count_ptr[0], request_sum_ptr[0], 7, MPI_UNSIGNED_LONG_LONG, MPI_SUM, 0, fd->comm);
     MPI_Reduce( request_count_ptr[1], request_sum_ptr[1], 8, MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, fd->comm);
     MPI_Reduce( request_count_ptr[2], request_sum_ptr[2], 8, MPI_UNSIGNED_LONG_LONG, MPI_MIN, 0, fd->comm);
@@ -435,12 +445,14 @@ int print_timing_results(ADIO_File fd, int myrank, int is_write){
             printf("| write 2 max calc other request all to all = %lf\n", fd->calc_other_request_all_to_all_time);
             printf("| write 2 max calc other request wait = %lf\n", fd->calc_other_request_wait_time);
             printf("| write 2 max calc other request total = %lf\n", fd->calc_other_request_time);
+            printf("| write 2 max calc other request total max = %lf\n", max_times[0]);
             printf("|\n");
             printf("| write 2 max inter datatype create = %lf\n", fd->inter_type_time);
             printf("| write 2 max inter heap = %lf\n", fd->inter_heap_time);
             printf("| write 2 max inter unpack = %lf\n", fd->inter_unpack_time);
             printf("| write 2 max inter data sieving = %lf\n", fd->inter_ds_time);
             printf("| write 2 max inter waitall = %lf\n", fd->inter_wait_time);
+            printf("| write 2 max inter waitall max = %lf\n", max_times[1]);
             printf("| write 2 max inter total = %lf\n", fd->total_inter_time);
             printf("|\n");
             printf("| write 3 max I/O time = %lf\n", fd->io_time);
@@ -497,7 +509,7 @@ int print_timing_results(ADIO_File fd, int myrank, int is_write){
             printf("| read max total time = %lf\n", fd->read_total_time);
             printf("+--------------------------------------------------------------------------+\n");
         }
-        write_timings(fd, myrank, request_sum_ptr, request_sum2_ptr,is_write);
+        write_timings(fd, myrank, request_sum_ptr, request_sum2_ptr,is_write, max_times);
     }
     ADIOI_Free(request_sum_ptr[0]);
     ADIOI_Free(request_sum_ptr[1]);

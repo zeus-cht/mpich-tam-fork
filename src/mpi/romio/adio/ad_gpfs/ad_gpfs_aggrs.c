@@ -743,7 +743,13 @@ void ADIOI_GPFS_Calc_others_req(ADIO_File fd, int count_my_req_procs,
         }
     }
     fd->calc_other_request_all_to_all_time += MPI_Wtime() - start;
+
 #ifdef ALWAYS_FALSE
+    int *scounts, *rcounts;
+    scounts = ADIOI_Malloc(nprocs * sizeof(int));
+    sdispls = ADIOI_Malloc(nprocs * sizeof(int));
+    rcounts = ADIOI_Malloc(nprocs * sizeof(int));
+    rdispls = ADIOI_Malloc(nprocs * sizeof(int));
     /* If no recv buffer was allocated in the loop above, make it NULL */
     if (recvBuf == (void *) 0xFFFFFFFFFFFFFFFF)
         recvBuf = NULL;
@@ -840,9 +846,11 @@ void ADIOI_GPFS_Calc_others_req(ADIO_File fd, int count_my_req_procs,
     all_to_all_selection(send_buf, send_buf[0], send_size, recv_size, sdispls, rdispls,
                          dtypes, recv_buf_ptr, count_others_req_procs, fd->alltoall_type_meta, fd, myrank, nprocs, requests);
 
+    ADIOI_Free(send_buf);
     ADIOI_Free(dtypes);
     ADIOI_Free(sdispls);
     ADIOI_Free(requests);
+    ADIOI_Free(count_others_req_per_proc);
     fd->calc_other_request_wait_time += MPI_Wtime() - start;
 
     *count_others_req_procs_ptr = count_others_req_procs;
