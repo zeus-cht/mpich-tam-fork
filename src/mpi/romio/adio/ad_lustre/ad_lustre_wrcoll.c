@@ -1003,7 +1003,8 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
         } else {
             /* myrank == first global aggregator, but nprocs can be 1, need to be extra careful.
              * We split into two cases. */
-            if (nprocs > 1) {
+            if (fd->hints->cb_nodes > 1) {
+                /* Must check if we have more than 1 global aggregator to enter this block*/
                 send_buf[fd->hints->ranklist[1]] = send_buf_start;
                 for ( i = 2; i < fd->hints->cb_nodes; ++i ) {
                     send_buf[fd->hints->ranklist[i]] = send_buf[fd->hints->ranklist[i-1]] + send_size[fd->hints->ranklist[i-1]];
@@ -1039,7 +1040,6 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
             MEMCPY_UNPACK(myrank, send_buf[myrank]);
         }
         /* End of buffer preparation */
-
         /* 1. Local aggregators receive the message size from non-local aggregators
          * We do not want to gather the entire send_size array, since this would be each of length nprocs and does not scale as the number of processes increases.
          * For example, 16K process would have 16K*16K*4B=1GB total data exchanged at this stage. Although this is intra-node aggregation, this is even more than most Lustre stripe size * stripe count, which can also cause a problem.
@@ -1242,7 +1242,6 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
             }
         }
     }
-
     /* free temporary receive buffer */
     if (sum_recv > striping_info[0])
         ADIOI_Free(contig_buf);
