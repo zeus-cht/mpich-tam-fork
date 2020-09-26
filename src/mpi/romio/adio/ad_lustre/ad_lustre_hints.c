@@ -184,9 +184,21 @@ void ADIOI_LUSTRE_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
          * In that case, we do not want to cause trouble, simply jump this settings. */
 
         if (stripe_count && users_info != MPI_INFO_NULL) {
+            int global_aggregators = -1;
             ADIOI_Info_get(users_info, "cb_nodes", MPI_MAX_INFO_VAL, value, &flag);
             if (!flag) {
-                MPL_snprintf(value, MPI_MAX_INFO_VAL + 1, "%d",stripe_count);
+		if (fd->access_mode & ADIO_RDONLY) {
+                    MPL_snprintf(value, MPI_MAX_INFO_VAL + 1, "%d", number_of_nodes);
+		    if (myrank == 0) {
+                        printf("entered read only hint setting\n");
+	            }
+	        } else {
+                    MPL_snprintf(value, MPI_MAX_INFO_VAL + 1, "%d", stripe_count);
+		    if (myrank ==0) {
+                        printf("entered write only or other hint setting\n");
+	            }
+	        }
+		global_aggregators = atoi(value);
                 //sprintf(value,"%d",stripe_count);
                 ADIOI_Info_set(users_info, "cb_nodes", value);
             }
@@ -194,7 +206,11 @@ void ADIOI_LUSTRE_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
             ADIOI_Info_get(users_info, "cb_config_list", MPI_MAX_INFO_VAL, value, &flag);
             if (!flag) {
                 /* number_of_nodes is a system info set by ad_open.c, we need to perform nullity check. */
-                MPL_snprintf(value, MPI_MAX_INFO_VAL + 1, "*:%d",(stripe_count + number_of_nodes - 1)/number_of_nodes);
+                if (global_aggregators == -1) {
+		    MPL_snprintf(value, MPI_MAX_INFO_VAL + 1, "*:%d",(stripe_count + number_of_nodes - 1)/number_of_nodes);
+		} else {
+                    MPL_snprintf(value, MPI_MAX_INFO_VAL + 1, "*:%d",(global_aggregators + number_of_nodes - 1)/number_of_nodes);
+	        }
                 //sprintf(value,"*:%d",(stripe_count + number_of_nodes - 1)/number_of_nodes);
                 ADIOI_Info_set(users_info, "cb_config_list", value);
             }
