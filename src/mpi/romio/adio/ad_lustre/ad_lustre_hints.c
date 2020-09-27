@@ -189,14 +189,8 @@ void ADIOI_LUSTRE_SetInfo(ADIO_File fd, MPI_Info users_info, int *error_code)
             if (!flag) {
 		if (fd->access_mode & ADIO_RDONLY) {
                     MPL_snprintf(value, MPI_MAX_INFO_VAL + 1, "%d", number_of_nodes);
-		    if (myrank == 0) {
-                        printf("entered read only hint setting\n");
-	            }
 	        } else {
                     MPL_snprintf(value, MPI_MAX_INFO_VAL + 1, "%d", stripe_count);
-		    if (myrank ==0) {
-                        printf("entered write only or other hint setting\n");
-	            }
 	        }
 		global_aggregators = atoi(value);
                 //sprintf(value,"%d",stripe_count);
