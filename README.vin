@@ -1,6 +1,6 @@
 This is a customized ROMIO branch for Supercomputing 2020 AD/AE appendix review. 
 This branch contains the latest TAM implementation proposed in https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9109678
-We built static libraries from this ROMIO customized branch (both ad_gpfs and ad_lustre) for evaluations of experiments in our paper.
+We built static libraries from this ROMIO customized branch ad_lustre for evaluations of experiments in our paper.
 To compile a static library on NERSC Cori for example, please take the following steps.
 For stage 5, you have to install autoconf, libtool, and automake in the same repository (or you can install with Anaconda on Cori.)
 0. cd mpich_develop
