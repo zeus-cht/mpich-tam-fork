@@ -414,7 +414,6 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
      * let's free the memory
      */
     ADIOI_Free(count_my_req_per_proc);
-    ADIOI_Free(my_req[0].offsets);
     if (gpfsmpio_tuneblocking) {
         for ( i = 0; i < nprocs; ++i ) {
             if ( my_req[i].count ) {
