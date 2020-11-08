@@ -277,7 +277,7 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
             }
         }
     }
-    printf("------------------gpfsmpio_tuneblocking=%d, gpfsmpio_comm=%d\n",gpfsmpio_tuneblocking,gpfsmpio_comm);
+
     if (gpfsmpio_tuneblocking) {
         if ((fd->romio_write_aggmethod == 1) || (fd->romio_write_aggmethod == 2)) {
             ADIOI_GPFS_Calc_file_domains(fd, st_offsets, end_offsets,
