@@ -996,7 +996,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
     char *_ptr = (inbuf);                                           \
     MPI_Aint    *mem_ptrs = others_req[x].mem_ptrs + start_pos[x];  \
     ADIO_Offset *mem_lens = others_req[x].lens     + start_pos[x];  \
-    for (_k=0; _k<recv_count[x]; _k++) {                            \
+    for (_k=0; _k<count[x]; _k++) {                            \
         memcpy((char*)mem_ptrs[_k], _ptr, mem_lens[_k]);       \
         _ptr += mem_lens[_k];                                       \
     }                                                               \
@@ -1024,6 +1024,7 @@ static void ADIOI_TAM_W_Exchange_data(ADIO_File fd, const void *buf, char *write
     MPI_Aint local_data_size;
     int *srt_len, sum;
     ADIO_Offset *srt_off;
+    MPI_Status status;
     /* Requests for TAM */
     MPI_Request *req = fd->req;
     MPI_Status *sts = fd->sts;
