@@ -75,7 +75,7 @@ static void ADIOI_TAM_W_Exchange_data(ADIO_File fd, const void *buf, char *write
                                   ADIOI_Access * others_req,
                                   int *send_buf_idx, int *curr_to_proc,
                                   int *done_to_proc, int *hole, int iter,
-                                  MPI_Aint buftype_extent, MPI_Aint * buf_idx, int *error_code)
+                                  MPI_Aint buftype_extent, MPI_Aint * buf_idx, int *error_code);
 
 static void ADIOI_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, char *write_buf,     /* 1 */
                                             ADIOI_Flatlist_node * flat_buf, ADIO_Offset * offset_list, ADIO_Offset * len_list, int *send_size, int *recv_size, ADIO_Offset off, int size,       /* 2 */
