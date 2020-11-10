@@ -1164,7 +1164,7 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
 #endif
     }
     /* End of intra-node aggregation phase */
-
+    return;
     /* 3. Inter-node aggregation phase of data from local aggregators to global aggregators.
          * Global aggregators know the data size from all processes in recv_size, so there is no need to exchange data size, this can boost performance. */
     j = 0;
