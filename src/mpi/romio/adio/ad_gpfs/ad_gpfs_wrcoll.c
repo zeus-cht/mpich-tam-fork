@@ -1000,17 +1000,6 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
 /* Sets error_code to MPI_SUCCESS if successful, or creates an error code
  * in the case of error.
  */
-
-#define MEMCPY_UNPACK(x, inbuf) {                                   \
-    int _k;                                                         \
-    char *_ptr = (inbuf);                                           \
-    MPI_Aint    *mem_ptrs = others_req[x].mem_ptrs + start_pos[x];  \
-    ADIO_Offset *mem_lens = others_req[x].lens     + start_pos[x];  \
-    for (_k=0; _k<count[x]; _k++) {                            \
-        memcpy((char*)mem_ptrs[_k], _ptr, mem_lens[_k]);       \
-        _ptr += mem_lens[_k];                                       \
-    }                                                               \
-}
 static void ADIOI_TAM_W_Exchange_data(ADIO_File fd, const void *buf, char* tmp_buf, int coll_bufsize, char *write_buf,
                                   ADIOI_Flatlist_node * flat_buf, ADIO_Offset
                                   * offset_list, ADIO_Offset * len_list, int *send_size,
@@ -1040,7 +1029,16 @@ static void ADIOI_TAM_W_Exchange_data(ADIO_File fd, const void *buf, char* tmp_b
     MPI_Status *sts = fd->sts;
 
     static char myname[] = "ADIOI_TAM_W_Exchange_data";
-
+#define MEMCPY_UNPACK(x, inbuf) {                                   \
+    int _k;                                                         \
+    char *_ptr = (inbuf);                                           \
+    MPI_Aint    *mem_ptrs = others_req[x].mem_ptrs + start_pos[x];  \
+    ADIO_Offset *mem_lens = others_req[x].lens     + start_pos[x];  \
+    for (_k=0; _k<count[x]; _k++) {                            \
+        memcpy((char*)mem_ptrs[_k], _ptr, mem_lens[_k]);       \
+        _ptr += mem_lens[_k];                                       \
+    }                                                               \
+}
 /* exchange recv_size info so that each process knows how much to
    send to whom. */
 
@@ -1069,6 +1067,7 @@ static void ADIOI_TAM_W_Exchange_data(ADIO_File fd, const void *buf, char* tmp_b
                 tmp_len[i] = others_req[i].lens[k];
                 others_req[i].lens[k] = partial_recv[i];
             }
+        }
     }
 
     /* To avoid a read-modify-write, check if there are holes in the
@@ -1129,10 +1128,11 @@ static void ADIOI_TAM_W_Exchange_data(ADIO_File fd, const void *buf, char* tmp_b
 
     if (nprocs_recv) {
         sum_recv -= recv_size[myrank];
-        if (sum_recv > coll_bufsize)
+        if (sum_recv > coll_bufsize) {
             contig_buf = (char *) ADIOI_Malloc(sum_recv);
-        else
+        } else {
             contig_buf = tmp_buf;
+        }
     }
     /* 
      * Most metadata arrays has been malloced at ad_open.c because they have fixed size.
@@ -1416,15 +1416,17 @@ static void ADIOI_TAM_W_Exchange_data(ADIO_File fd, const void *buf, char* tmp_b
         }
     }
 /* for partial recvs, restore original lengths */
-    for (i = 0; i < nprocs; i++)
+    for (i = 0; i < nprocs; i++) {
         if (partial_recv[i]) {
             k = start_pos[i] + count[i] - 1;
             others_req[i].lens[k] = tmp_len[i];
         }
+    }
     ADIOI_Free(tmp_len);
     /* free temporary receive buffer */
-    if (nprocs_recv && sum_recv > coll_bufsize)
+    if (nprocs_recv && sum_recv > coll_bufsize) {
         ADIOI_Free(contig_buf);
+    }
 }
 
 
