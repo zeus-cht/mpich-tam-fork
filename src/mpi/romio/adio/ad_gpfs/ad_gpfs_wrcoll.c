@@ -1286,7 +1286,7 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
     char **send_buf = NULL, *buf_ptr;
     MPI_Request *send_req = NULL;
     MPI_Status status;
-    char **send_buf, *send_buf_start;
+    char *send_buf_start;
     int *srt_len, sum;
     ADIO_Offset *srt_off;
     static char myname[] = "ADIOI_W_EXCHANGE_DATA";
