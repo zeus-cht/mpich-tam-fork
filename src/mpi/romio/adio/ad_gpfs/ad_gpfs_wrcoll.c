@@ -1001,6 +1001,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
 static void ADIOI_TAM_Unpack(char* buf, int* recv_size, int* partial_recv, ADIOI_Access * others_req, int *count, int *start_pos, int i) {
     int j, k;
     char *to_ptr;
+    ADIO_Offset tmp_len;
     if (recv_size[i]) {
         if (partial_recv[i]) {
             k = start_pos[i] + count[i] - 1;
@@ -1010,8 +1011,7 @@ static void ADIOI_TAM_Unpack(char* buf, int* recv_size, int* partial_recv, ADIOI
         for (j = 0; j < count[i]; j++) {
             to_ptr =
                 (char *) ADIOI_AINT_CAST_TO_VOID_PTR(others_req[i].mem_ptrs[start_pos[i] + j]);
-            len = others_req[i].lens[start_pos[i] + j];
-            memcpy(to_ptr, buf, len);
+            memcpy(to_ptr, buf, others_req[i].lens[start_pos[i] + j]);
         }
 
         /* restore */
@@ -1261,7 +1261,7 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
                 for ( k = 0; k < fd->local_aggregator_domain_size[i]; ++k ) {
                     /* Local data has been unpacked at the beginning, nothing should be received from its local aggregator. */
                     if (fd->local_aggregator_domain[i][k] != myrank) {
-                        ADIOI_TAM_Unpack((char *) buf_ptr, fd->local_aggregator_domain[i][k]);
+                        ADIOI_TAM_Unpack((char *) buf_ptr, recv_size, partial_recv, others_req, count, start_pos, fd->local_aggregator_domain[i][k]);
                         buf_ptr += recv_size[fd->local_aggregator_domain[i][k]];
                     }
                 }
@@ -1282,7 +1282,7 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
                                             int iter, MPI_Aint buftype_extent, MPI_Aint * buf_idx,
                                             int *error_code)
 {
-    int i, j, k = 0, nprocs_recv, nprocs_send, *tmp_len, err;
+    int i, j, k = 0, nprocs_recv, nprocs_send, err;
     char **send_buf = NULL;
     MPI_Request *send_req = NULL;
     MPI_Status status;
