@@ -1040,6 +1040,7 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
     char *buf_ptr, *contig_buf, *tmp_ptr;
     MPI_Aint local_data_size;
 
+/*
     if ( nprocs_recv ) {
         sum_recv -= recv_size[myrank];
         if (sum_recv > coll_bufsize)
@@ -1047,6 +1048,9 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
         else
             contig_buf = tmp_buf;
     }
+*/
+    contig_buf = (char *) ADIOI_Malloc(sum_recv);
+
     MPI_Request *req = fd->req;
     MPI_Status *sts = fd->sts;
 
@@ -1188,7 +1192,7 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
         for ( i = 0; i < fd->local_aggregator_size; ++i ) {
             if (fd->local_aggregators[i] != myrank) {
                 if (fd->global_recv_size[i]) {
-                    //MPI_Irecv(buf_ptr, fd->global_recv_size[i], MPI_BYTE, fd->local_aggregators[i], fd->local_aggregators[i] + myrank, fd->comm, &req[j++]);
+                    MPI_Irecv(buf_ptr, fd->global_recv_size[i], MPI_BYTE, fd->local_aggregators[i], fd->local_aggregators[i] + myrank, fd->comm, &req[j++]);
                     buf_ptr += fd->global_recv_size[i];
                 }
             }
@@ -1217,7 +1221,7 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
                 if (local_data_size) {
                     MPI_Type_create_hindexed(fd->nprocs_aggregator, fd->array_of_blocklengths, fd->array_of_displacements, MPI_BYTE, fd->new_types + i);
                     MPI_Type_commit(fd->new_types + i);
-                    //MPI_Issend(MPI_BOTTOM, 1, fd->new_types[i], fd->hints->ranklist[i], myrank + fd->hints->ranklist[i], fd->comm, &req[j++]);
+                    MPI_Issend(MPI_BOTTOM, 1, fd->new_types[i], fd->hints->ranklist[i], myrank + fd->hints->ranklist[i], fd->comm, &req[j++]);
                 }
             } else {
                 /* A global aggregator that is also a local aggregator directly unpacks the buffer here. */
@@ -1276,9 +1280,12 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
         }
     }
     /* free temporary receive buffer */
+/*
     if (nprocs_recv && sum_recv > coll_bufsize) {
         ADIOI_Free(contig_buf);
     }
+*/
+    ADIOI_Free(contig_buf);
     return;
 }
 
