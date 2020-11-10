@@ -1106,6 +1106,7 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
         MPI_Waitall(j, req, sts);
 #endif
     }
+    return;
     /* End of gathering message size */
     /* 2. Intra-node aggregator of data from nonaggregators to local aggregators */
     j = 0;
@@ -1383,9 +1384,9 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
     gpfsmpio_prof_cw[GPFSMPIO_CIO_T_DEXCH_SETUP] += MPI_Wtime() - io_time;
 
     io_time = MPI_Wtime();
-/*
+
     ADIOI_TAM_Kernel(fd, myrank, tmp_buf, send_buf, send_buf_start, send_size, recv_size, nprocs_recv, send_total_size, sum_recv, coll_bufsize, partial_recv, others_req, count, start_pos);
-*/
+
 
     gpfsmpio_prof_cw[GPFSMPIO_CIO_T_DEXCH_NET] += MPI_Wtime() - io_time;
     io_time = MPI_Wtime();
