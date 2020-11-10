@@ -1024,6 +1024,7 @@ static void ADIOI_TAM_Unpack(char* buf, int* recv_size, int* partial_recv, ADIOI
             to_ptr =
                 (char *) ADIOI_AINT_CAST_TO_VOID_PTR(others_req[i].mem_ptrs[start_pos[i] + j]);
             memcpy(to_ptr, buf, others_req[i].lens[start_pos[i] + j]);
+            buf += others_req[i].lens[start_pos[i] + j];
         }
 
         /* restore */
