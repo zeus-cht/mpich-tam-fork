@@ -61,7 +61,7 @@ static void ADIOI_W_Exchange_data(ADIO_File fd, const void *buf, char *write_buf
                                   int *done_to_proc, int *hole, int iter,
                                   MPI_Aint buftype_extent, MPI_Aint * buf_idx, int *error_code);
 
-static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, char *write_buf, char* tmp_buf, int coll_bufsize     /* 1 */
+static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, char *write_buf, char* tmp_buf, int coll_bufsize,     /* 1 */
                                             ADIOI_Flatlist_node * flat_buf, ADIO_Offset * offset_list, ADIO_Offset * len_list, int *send_size, int *recv_size, ADIO_Offset off, int size,       /* 2 */
                                             int *count, int *start_pos, int *partial_recv, int *sent_to_proc, int nprocs, int myrank, int buftype_is_contig, int contig_access_count, ADIO_Offset min_st_offset, ADIO_Offset fd_size, ADIO_Offset * fd_start, ADIO_Offset * fd_end, ADIOI_Access * others_req, int *send_buf_idx, int *curr_to_proc,    /* 3 */
                                             int *done_to_proc, int *hole,       /* 4 */
@@ -996,6 +996,31 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
     }
 
     unsetenv("LIBIOLOG_EXTRA_INFO");
+}
+
+static void ADIOI_TAM_Unpack(char* buf, int* recv_size, int* partial_recv, ADIOI_Access * others_req, int *count, int *start_pos, int i) {
+    int j, k;
+    char *to_ptr;
+    if (recv_size[i]) {
+        if (partial_recv[i]) {
+            k = start_pos[i] + count[i] - 1;
+            tmp_len = others_req[i].lens[k];
+            others_req[i].lens[k] = partial_recv[i];
+        }
+        for (j = 0; j < count[i]; j++) {
+            to_ptr =
+                (char *) ADIOI_AINT_CAST_TO_VOID_PTR(others_req[i].mem_ptrs[start_pos[i] + j]);
+            len = others_req[i].lens[start_pos[i] + j];
+            memcpy(to_ptr, buf, len);
+        }
+
+        /* restore */
+        if (partial_recv[i]) {
+            k = start_pos[i] + count[i] - 1;
+            others_req[i].lens[k] = tmp_len;
+        }
+
+    }
 }
 
 static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** send_buf, char* send_buf_start, int* send_size, int* recv_size, int nprocs_recv, size_t send_total_size, int sum_recv, int coll_bufsize, int* partial_recv, ADIOI_Access * others_req, int *count, int *start_pos) {
