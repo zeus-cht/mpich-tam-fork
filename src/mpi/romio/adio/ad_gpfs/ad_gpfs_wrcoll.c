@@ -1188,7 +1188,7 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
         for ( i = 0; i < fd->local_aggregator_size; ++i ) {
             if (fd->local_aggregators[i] != myrank) {
                 if (fd->global_recv_size[i]) {
-                    MPI_Irecv(buf_ptr, fd->global_recv_size[i], MPI_BYTE, fd->local_aggregators[i], fd->local_aggregators[i] + myrank, fd->comm, &req[j++]);
+                    //MPI_Irecv(buf_ptr, fd->global_recv_size[i], MPI_BYTE, fd->local_aggregators[i], fd->local_aggregators[i] + myrank, fd->comm, &req[j++]);
                     buf_ptr += fd->global_recv_size[i];
                 }
             }
@@ -1217,7 +1217,7 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
                 if (local_data_size) {
                     MPI_Type_create_hindexed(fd->nprocs_aggregator, fd->array_of_blocklengths, fd->array_of_displacements, MPI_BYTE, fd->new_types + i);
                     MPI_Type_commit(fd->new_types + i);
-                    MPI_Issend(MPI_BOTTOM, 1, fd->new_types[i], fd->hints->ranklist[i], myrank + fd->hints->ranklist[i], fd->comm, &req[j++]);
+                    //MPI_Issend(MPI_BOTTOM, 1, fd->new_types[i], fd->hints->ranklist[i], myrank + fd->hints->ranklist[i], fd->comm, &req[j++]);
                 }
             } else {
                 /* A global aggregator that is also a local aggregator directly unpacks the buffer here. */
@@ -1244,7 +1244,7 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
 #endif
     }
     /* End of inter-node aggregation, no more MPI communications. */
-    return;
+
     /* local aggregators free derived datatypes */
     if ( fd->is_local_aggregator ){
         for ( i = 0; i < fd->hints->cb_nodes; ++i){
