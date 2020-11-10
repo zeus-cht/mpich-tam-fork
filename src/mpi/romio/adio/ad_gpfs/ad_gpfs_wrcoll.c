@@ -624,6 +624,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
    at least another 8Mbytes of temp space is unacceptable. */
 
     /* Not convinced end_loc-st_loc couldn't be > int, so make these offsets */
+    char* tmp_buf;
     ADIO_Offset size = 0;
     int hole, i, j, m, ntimes, max_ntimes, buftype_is_contig;
     ADIO_Offset st_loc = -1, end_loc = -1, off, done, req_off;
@@ -677,6 +678,10 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
 /* ntimes=ceiling_div(end_loc - st_loc + 1, coll_bufsize)*/
 
     ntimes = (int) ((end_loc - st_loc + coll_bufsize) / coll_bufsize);
+    
+    if (fd->is_agg) {
+        tmp_buf = (char *) ADIOI_Malloc(coll_bufsize * sizeof(char));
+    }
 
     if ((st_loc == -1) && (end_loc == -1)) {
         ntimes = 0;     /* this process does no writing. */
@@ -853,7 +858,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
         MPE_Log_event(7, 0, "start communication");
 #endif
         if (gpfsmpio_comm == 1)
-            ADIOI_TAM_W_Exchange_data(fd, buf, write_buf, flat_buf, offset_list,
+            ADIOI_TAM_W_Exchange_data(fd, buf, tmp_buf, coll_bufsize, write_buf, flat_buf, offset_list,
                                   len_list, send_size, recv_size, off, size, count,
                                   start_pos, partial_recv,
                                   sent_to_proc, nprocs, myrank,
@@ -941,7 +946,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
     for (m = ntimes; m < max_ntimes; m++)
         /* nothing to recv, but check for send. */
         if (gpfsmpio_comm == 1)
-            ADIOI_W_Exchange_data(fd, buf, write_buf, flat_buf, offset_list,
+            ADIOI_TAM_W_Exchange_data(fd, buf, tmp_buf, coll_bufsize, write_buf, flat_buf, offset_list,
                                   len_list, send_size, recv_size, off, size, count,
                                   start_pos, partial_recv,
                                   sent_to_proc, nprocs, myrank,
@@ -975,6 +980,11 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
     ADIOI_Free(start_pos);
     ADIOI_Free(send_buf_idx);
 
+    if (fd->is_agg) {
+        ADIOI_Free(tmp_buf);
+    }
+
+
     if (ntimes != 0 && getenv("ROMIO_GPFS_DECLARE_ACCESS") != NULL) {
         gpfs_wr_access_end(fd->fd_sys, st_loc, end_loc - st_loc);
     }
@@ -994,14 +1004,23 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
 #define MEMCPY_UNPACK(x, inbuf) {                                   \
     int _k;                                                         \
     char *_ptr = (inbuf);                                           \
+    if (partial_recv[x]) {                                          \
+        _k = start_pos[x] + count[x] - 1;                           \
+        tmp_len[x] = others_req[x].lens[_k];                        \
+        others_req[x].lens[_k] = partial_recv[x];                   \
+    }                                                               \
     MPI_Aint    *mem_ptrs = others_req[x].mem_ptrs + start_pos[x];  \
     ADIO_Offset *mem_lens = others_req[x].lens     + start_pos[x];  \
     for (_k=0; _k<count[x]; _k++) {                            \
         memcpy((char*)mem_ptrs[_k], _ptr, mem_lens[_k]);       \
         _ptr += mem_lens[_k];                                       \
     }                                                               \
+    if (partial_recv[x]) {                                          \
+        _k = start_pos[x] + count[x] - 1;                            \
+        others_req[x].lens[_k] = tmp_len[x];                         \
+    }
 }
-static void ADIOI_TAM_W_Exchange_data(ADIO_File fd, const void *buf, char *write_buf,
+static void ADIOI_TAM_W_Exchange_data(ADIO_File fd, const void *buf, char* tmp_buf, int coll_bufsize, char *write_buf,
                                   ADIOI_Flatlist_node * flat_buf, ADIO_Offset
                                   * offset_list, ADIO_Offset * len_list, int *send_size,
                                   int *recv_size, ADIO_Offset off, int size,
@@ -1040,13 +1059,25 @@ static void ADIOI_TAM_W_Exchange_data(ADIO_File fd, const void *buf, char *write
 
     nprocs_recv = 0;
     nprocs_send = 0;
+    sum_recv = 0;
     for (i = 0; i < nprocs; i++) {
         if (recv_size[i]) {
             nprocs_recv++;
+            sum_recv += recv_size[i];
         }
         if (send_size[i]) {
             nprocs_send++;
         }
+    }
+    tmp_len = (int *) ADIOI_Malloc(nprocs * sizeof(int));
+    for (i = 0; i < nprocs; i++) {
+        if (recv_size[i]) {
+/* take care if the last off-len pair is a partial recv */
+            if (partial_recv[i]) {
+                k = start_pos[i] + count[i] - 1;
+                tmp_len[i] = others_req[i].lens[k];
+                others_req[i].lens[k] = partial_recv[i];
+            }
     }
 
     /* To avoid a read-modify-write, check if there are holes in the
@@ -1113,6 +1144,13 @@ static void ADIOI_TAM_W_Exchange_data(ADIO_File fd, const void *buf, char *write
         }
     }
 
+    if (nprocs_recv) {
+        sum_recv -= recv_size[myrank];
+        if (sum_recv > coll_bufsize)
+            contig_buf = (char *) ADIOI_Malloc(sum_recv);
+        else
+            contig_buf = tmp_buf;
+    }
     /* 
      * Most metadata arrays has been malloced at ad_open.c because they have fixed size.
      * We only need to prepare the buffer for data since they have variable size.
@@ -1394,6 +1432,9 @@ static void ADIOI_TAM_W_Exchange_data(ADIO_File fd, const void *buf, char *write
             }
         }
     }
+    /* free temporary receive buffer */
+    if (nprocs_recv && sum_recv > coll_bufsize)
+        ADIOI_Free(contig_buf);
 }
 
 
