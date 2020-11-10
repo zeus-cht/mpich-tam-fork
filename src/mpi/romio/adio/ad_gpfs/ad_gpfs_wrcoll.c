@@ -1283,12 +1283,10 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
                                             int *error_code)
 {
     int i, j, k = 0, nprocs_recv, nprocs_send, err;
-    char **send_buf = NULL;
+    char **send_buf = NULL, *buf_ptr;
     MPI_Request *send_req = NULL;
     MPI_Status status;
-    int rtail, stail;
-    char *sbuf_ptr, *to_ptr;
-    int len;
+    char **send_buf, *send_buf_start;
     int *srt_len, sum;
     ADIO_Offset *srt_off;
     static char myname[] = "ADIOI_W_EXCHANGE_DATA";
