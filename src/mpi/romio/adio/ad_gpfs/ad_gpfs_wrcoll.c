@@ -1243,6 +1243,7 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
         MPI_Waitall(j, req, sts);
 #endif
     }
+    return;
     /* End of inter-node aggregation, no more MPI communications. */
 
     /* local aggregators free derived datatypes */
