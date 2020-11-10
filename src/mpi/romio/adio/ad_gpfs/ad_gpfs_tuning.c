@@ -127,7 +127,7 @@ void ad_gpfs_get_env_vars()
 {
     char *x, *dummy;
 
-    gpfsmpio_comm = 0;
+    gpfsmpio_comm = 1;
     x = getenv("GPFSMPIO_COMM");
     if (x)
         gpfsmpio_comm = atoi(x);
