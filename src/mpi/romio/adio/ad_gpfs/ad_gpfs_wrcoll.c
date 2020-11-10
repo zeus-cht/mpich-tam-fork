@@ -670,7 +670,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
 
     ntimes = (int) ((end_loc - st_loc + coll_bufsize) / coll_bufsize);
     
-    if (fd->is_agg && (st_loc == -1) && (end_loc == -1) ) {
+    if (fd->is_agg && ((st_loc != -1) || (end_loc != -1) ) {
         tmp_buf = (char *) ADIOI_Malloc(coll_bufsize * sizeof(char));
     }
 
@@ -993,7 +993,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
     ADIOI_Free(start_pos);
     ADIOI_Free(send_buf_idx);
 
-    if (fd->is_agg && (st_loc == -1) && (end_loc == -1)) {
+    if (fd->is_agg && ((st_loc != -1) || (end_loc != -1) ) {
         ADIOI_Free(tmp_buf);
     }
 
@@ -1040,7 +1040,6 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
     char *buf_ptr, *contig_buf, *tmp_ptr;
     MPI_Aint local_data_size;
 
-/*
     if ( nprocs_recv ) {
         sum_recv -= recv_size[myrank];
         if (sum_recv > coll_bufsize)
@@ -1048,8 +1047,6 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
         else
             contig_buf = tmp_buf;
     }
-*/
-    contig_buf = (char *) ADIOI_Malloc(sum_recv);
 
     MPI_Request *req = fd->req;
     MPI_Status *sts = fd->sts;
@@ -1247,7 +1244,6 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
         MPI_Waitall(j, req, sts);
 #endif
     }
-    return;
     /* End of inter-node aggregation, no more MPI communications. */
 
     /* local aggregators free derived datatypes */
@@ -1280,12 +1276,11 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
         }
     }
     /* free temporary receive buffer */
-/*
+
     if (nprocs_recv && sum_recv > coll_bufsize) {
         ADIOI_Free(contig_buf);
     }
-*/
-    ADIOI_Free(contig_buf);
+
     return;
 }
 
