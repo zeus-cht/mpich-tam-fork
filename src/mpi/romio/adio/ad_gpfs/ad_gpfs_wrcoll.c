@@ -1106,7 +1106,6 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
         MPI_Waitall(j, req, sts);
 #endif
     }
-    return;
     /* End of gathering message size */
     /* 2. Intra-node aggregator of data from nonaggregators to local aggregators */
     j = 0;
@@ -1165,11 +1164,6 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
 #endif
     }
     /* End of intra-node aggregation phase */
-
-    /* Contiguous send buffer is no longer needed*/
-
-    ADIOI_Free(send_buf_start);
-    ADIOI_Free(send_buf);
 
     /* 3. Inter-node aggregation phase of data from local aggregators to global aggregators.
          * Global aggregators know the data size from all processes in recv_size, so there is no need to exchange data size, this can boost performance. */
@@ -1285,6 +1279,7 @@ static void ADIOI_TAM_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char** sen
     if (nprocs_recv && sum_recv > coll_bufsize) {
         ADIOI_Free(contig_buf);
     }
+    return;
 }
 
 
