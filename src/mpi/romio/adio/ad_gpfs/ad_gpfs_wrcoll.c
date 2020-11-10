@@ -679,7 +679,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
 
     ntimes = (int) ((end_loc - st_loc + coll_bufsize) / coll_bufsize);
     
-    if (fd->is_agg) {
+    if (fd->is_agg && (st_loc == -1) && (end_loc == -1) ) {
         tmp_buf = (char *) ADIOI_Malloc(coll_bufsize * sizeof(char));
     }
 
@@ -858,7 +858,17 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
         MPE_Log_event(7, 0, "start communication");
 #endif
         if (gpfsmpio_comm == 1)
+/*
             ADIOI_TAM_W_Exchange_data(fd, buf, tmp_buf, coll_bufsize, write_buf, flat_buf, offset_list,
+                                  len_list, send_size, recv_size, off, size, count,
+                                  start_pos, partial_recv,
+                                  sent_to_proc, nprocs, myrank,
+                                  buftype_is_contig, contig_access_count,
+                                  min_st_offset, fd_size, fd_start, fd_end,
+                                  others_req, send_buf_idx, curr_to_proc,
+                                  done_to_proc, &hole, m, buftype_extent, buf_idx, error_code);
+*/
+            ADIOI_W_Exchange_data(fd, buf, write_buf, flat_buf, offset_list,
                                   len_list, send_size, recv_size, off, size, count,
                                   start_pos, partial_recv,
                                   sent_to_proc, nprocs, myrank,
@@ -946,6 +956,16 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
     for (m = ntimes; m < max_ntimes; m++)
         /* nothing to recv, but check for send. */
         if (gpfsmpio_comm == 1)
+            ADIOI_TAM_W_Exchange_data(fd, buf, write_buf, flat_buf, offset_list,
+                                  len_list, send_size, recv_size, off, size, count,
+                                  start_pos, partial_recv,
+                                  sent_to_proc, nprocs, myrank,
+                                  buftype_is_contig, contig_access_count,
+                                  min_st_offset, fd_size, fd_start, fd_end,
+                                  others_req, send_buf_idx,
+                                  curr_to_proc, done_to_proc, &hole, m,
+                                  buftype_extent, buf_idx, error_code);
+/*
             ADIOI_TAM_W_Exchange_data(fd, buf, tmp_buf, coll_bufsize, write_buf, flat_buf, offset_list,
                                   len_list, send_size, recv_size, off, size, count,
                                   start_pos, partial_recv,
@@ -955,6 +975,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
                                   others_req, send_buf_idx,
                                   curr_to_proc, done_to_proc, &hole, m,
                                   buftype_extent, buf_idx, error_code);
+*/
         else if (gpfsmpio_comm == 0)
             ADIOI_W_Exchange_data_alltoallv(fd, buf, write_buf, flat_buf, offset_list,
                                             len_list, send_size, recv_size, off, size, count,
@@ -980,7 +1001,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
     ADIOI_Free(start_pos);
     ADIOI_Free(send_buf_idx);
 
-    if (fd->is_agg) {
+    if (fd->is_agg && (st_loc == -1) && (end_loc == -1)) {
         ADIOI_Free(tmp_buf);
     }
 
