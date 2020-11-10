@@ -1004,21 +1004,12 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
 #define MEMCPY_UNPACK(x, inbuf) {                                   \
     int _k;                                                         \
     char *_ptr = (inbuf);                                           \
-    if (partial_recv[x]) {                                          \
-        _k = start_pos[x] + count[x] - 1;                           \
-        tmp_len[x] = others_req[x].lens[_k];                        \
-        others_req[x].lens[_k] = partial_recv[x];                   \
-    }                                                               \
     MPI_Aint    *mem_ptrs = others_req[x].mem_ptrs + start_pos[x];  \
     ADIO_Offset *mem_lens = others_req[x].lens     + start_pos[x];  \
     for (_k=0; _k<count[x]; _k++) {                            \
         memcpy((char*)mem_ptrs[_k], _ptr, mem_lens[_k]);       \
         _ptr += mem_lens[_k];                                       \
     }                                                               \
-    if (partial_recv[x]) {                                          \
-        _k = start_pos[x] + count[x] - 1;                            \
-        others_req[x].lens[_k] = tmp_len[x];                         \
-    }
 }
 static void ADIOI_TAM_W_Exchange_data(ADIO_File fd, const void *buf, char* tmp_buf, int coll_bufsize, char *write_buf,
                                   ADIOI_Flatlist_node * flat_buf, ADIO_Offset
@@ -1041,7 +1032,7 @@ static void ADIOI_TAM_W_Exchange_data(ADIO_File fd, const void *buf, char* tmp_b
     char *buf_ptr, *contig_buf, **send_buf = NULL, *send_buf_start;
     size_t send_total_size;
     MPI_Aint local_data_size;
-    int *srt_len, sum;
+    int *srt_len, sum, sum_recv;
     ADIO_Offset *srt_off;
     MPI_Status status;
     /* Requests for TAM */
@@ -1092,14 +1083,6 @@ static void ADIOI_TAM_W_Exchange_data(ADIO_File fd, const void *buf, char* tmp_b
     /* +1 to avoid a 0-size malloc */
 
     ADIOI_Heap_merge(others_req, count, srt_off, srt_len, start_pos, nprocs, nprocs_recv, sum);
-
-/* for partial recvs, restore original lengths */
-    for (i = 0; i < nprocs; i++)
-        if (partial_recv[i]) {
-            k = start_pos[i] + count[i] - 1;
-            others_req[i].lens[k] = tmp_len[i];
-        }
-    ADIOI_Free(tmp_len);
 
     /* check if there are any holes. If yes, must do read-modify-write.
      * holes can be in three places.  'middle' is what you'd expect: the
@@ -1432,6 +1415,13 @@ static void ADIOI_TAM_W_Exchange_data(ADIO_File fd, const void *buf, char* tmp_b
             }
         }
     }
+/* for partial recvs, restore original lengths */
+    for (i = 0; i < nprocs; i++)
+        if (partial_recv[i]) {
+            k = start_pos[i] + count[i] - 1;
+            others_req[i].lens[k] = tmp_len[i];
+        }
+    ADIOI_Free(tmp_len);
     /* free temporary receive buffer */
     if (nprocs_recv && sum_recv > coll_bufsize)
         ADIOI_Free(contig_buf);
