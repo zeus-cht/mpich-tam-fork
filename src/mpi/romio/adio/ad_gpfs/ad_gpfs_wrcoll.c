@@ -956,7 +956,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
     for (m = ntimes; m < max_ntimes; m++)
         /* nothing to recv, but check for send. */
         if (gpfsmpio_comm == 1)
-            ADIOI_TAM_W_Exchange_data(fd, buf, write_buf, flat_buf, offset_list,
+            ADIOI_W_Exchange_data(fd, buf, write_buf, flat_buf, offset_list,
                                   len_list, send_size, recv_size, off, size, count,
                                   start_pos, partial_recv,
                                   sent_to_proc, nprocs, myrank,
