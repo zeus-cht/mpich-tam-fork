@@ -151,6 +151,10 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
     MPI_Comm_size(fd->comm, &nprocs);
     MPI_Comm_rank(fd->comm, &myrank);
 
+    if (!myrank) {
+        printf("entered gpfs read function\n");
+    }
+
     /* number of aggregators, cb_nodes, is stored in the hints */
     nprocs_for_coll = fd->hints->cb_nodes;
     orig_fp = fd->fp_ind;
