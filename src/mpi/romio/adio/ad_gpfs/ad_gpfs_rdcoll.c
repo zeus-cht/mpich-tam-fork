@@ -1108,9 +1108,8 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
                                             int iter, MPI_Aint buftype_extent, MPI_Aint * buf_idx)
 {
     int i, j, k = 0, tmp = 0, nprocs_recv, nprocs_send;
-    char **recv_buf = NULL, *recv_buf_start, *buf_ptr;
+    char **recv_buf = NULL, **recv_buf2, *recv_buf_start, *buf_ptr;
     MPI_Request *requests = NULL;
-    MPI_Status *statuses = NULL;
     size_t recv_total_size;
     int sum_send;
 
@@ -1180,6 +1179,63 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
 
     /* alltoallv */
     ADIOI_TAM_Read_Kernel(fd, myrank, read_contig_buf, recv_buf, recv_buf_start, send_size, recv_size, nprocs_send, recv_total_size, sum_send, coll_bufsize, partial_send, others_req, count, start_pos);
+
+    requests = (MPI_Request *)
+        ADIOI_Malloc((nprocs_send + nprocs_recv + 1) * sizeof(MPI_Request));
+/* allocate memory for recv_buf and post receives */
+    recv_buf2 = (char **) ADIOI_Malloc(nprocs * sizeof(char *));
+    for (i = 0; i < nprocs; i++) {
+        if (recv_size[i])
+            recv_buf2[i] = (char *) ADIOI_Malloc(recv_size[i]);
+    }
+    j = 0;
+    for (i = 0; i < nprocs; i++) {
+        if (recv_size[i]) {
+            MPI_Irecv(recv_buf2[i], recv_size[i], MPI_BYTE, i,
+                      myrank + i + 100 * iter, fd->comm, requests + j);
+            j++;
+        }
+    }
+
+    j = 0;
+    for (i = 0; i < nprocs; i++) {
+        if (send_size[i]) {
+/* take care if the last off-len pair is a partial send */
+            if (partial_send[i]) {
+                k = start_pos[i] + count[i] - 1;
+                tmp = others_req[i].lens[k];
+                others_req[i].lens[k] = partial_send[i];
+            }
+            ADIOI_Type_create_hindexed_x(count[i],
+                                         &(others_req[i].lens[start_pos[i]]),
+                                         &(others_req[i].mem_ptrs[start_pos[i]]),
+                                         MPI_BYTE, &send_type);
+            /* absolute displacement; use MPI_BOTTOM in send */
+            MPI_Type_commit(&send_type);
+            MPI_Isend(MPI_BOTTOM, 1, send_type, i, myrank + i + 100 * iter,
+                      fd->comm, requests + nprocs_recv + j);
+            MPI_Type_free(&send_type);
+            if (partial_send[i])
+                others_req[i].lens[k] = tmp;
+            j++;
+        }
+    }
+    MPI_Waitall(nprocs_recv, requests, MPI_STATUSES_IGNORE);
+    MPI_Waitall(nprocs_send, requests + nprocs_recv, MPI_STATUSES_IGNORE);
+
+    for ( i = 0; i < nprocs; ++i ) {
+        for ( k = 0; k < recv_size[i]; ++k ) {
+            if ( recv_buf[i] != recv_buf2[i] ) {
+                printf("critical error for false byte in read\n");
+            }
+        }
+    }
+
+    for (i = 0; i < nprocs; i++) {
+        if (recv_size[i])
+            ADIOI_Free(recv_buf2[i]);
+    }
+    ADIOI_Free(recv_buf2);
 
 #if 0
     DBG_FPRINTF(stderr, "\tall_recv_buf = ");
