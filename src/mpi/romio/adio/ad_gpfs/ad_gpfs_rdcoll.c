@@ -1108,7 +1108,7 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
                                             int iter, MPI_Aint buftype_extent, MPI_Aint * buf_idx)
 {
     int i, j, k = 0, tmp = 0, nprocs_recv, nprocs_send;
-    char **recv_buf = NULL, *recv_buf_start, *but_ptr;
+    char **recv_buf = NULL, *recv_buf_start, *buf_ptr;
     MPI_Request *requests = NULL;
     MPI_Status *statuses = NULL;
     size_t recv_total_size;
