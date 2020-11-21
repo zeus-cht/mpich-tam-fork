@@ -1110,8 +1110,10 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
     int i, j, k = 0, tmp = 0, nprocs_recv, nprocs_send;
     char **recv_buf = NULL, **recv_buf2, *recv_buf_start, *buf_ptr;
     MPI_Request *requests = NULL;
+    MPI_Datatype send_type;
     size_t recv_total_size;
     int sum_send;
+
 
     /* exchange send_size info so that each process knows how much to
      * receive from whom and how much memory to allocate. */
