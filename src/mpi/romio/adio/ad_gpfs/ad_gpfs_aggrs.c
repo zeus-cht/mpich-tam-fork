@@ -464,7 +464,7 @@ void ADIOI_GPFS_TAM_Calc_my_req(ADIO_File fd, ADIO_Offset * offset_list, ADIO_Of
     MPI_Comm_rank(fd->comm, &myrank);
 
 
-    TRACE_ERR("Entering ADIOI_GPFS_Calc_my_req\n");
+    TRACE_ERR("Entering ADIOI_GPFS_TAM_Calc_my_req\n");
 
 #ifdef AGGREGATION_PROFILE
     MPE_Log_event(5024, 0, NULL);
@@ -551,10 +551,10 @@ void ADIOI_GPFS_TAM_Calc_my_req(ADIO_File fd, ADIO_Offset * offset_list, ADIO_Of
         my_req[i].count = 0;    /* will be incremented where needed
                                  * later */
     }
+#endif
     for ( i = 0; i < nprocs; ++i ) {
         my_req[i].count = 0;
     }
-#endif
     if (fd->is_agg) {
         for (i = 0; i < fd->hints->cb_nodes; i++) {
             if (fd->hints->ranklist[i] != myrank && count_my_req_per_proc[fd->hints->ranklist[i]]) {
