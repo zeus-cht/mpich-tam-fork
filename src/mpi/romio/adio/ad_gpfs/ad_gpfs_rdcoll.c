@@ -1138,7 +1138,7 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
             sum_send += send_size[i];
         }
     }
-
+    #if 1==2
     /* 0. This section first pack local send data into send_buf */
     recv_total_size = 0;
     /* Only global aggregators send data. The rest of recv_size entry must be zero. 
@@ -1183,7 +1183,7 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
             }
         }
     }
-
+    #endif
     /* alltoallv */
 
 /*
@@ -1271,11 +1271,13 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
             ADIOI_Free(recv_buf2[i]);
     }
     ADIOI_Free(recv_buf2);
-
+/*
     if (nprocs_recv) {
         ADIOI_Free(recv_buf_start);
         ADIOI_Free(recv_buf);
     }
+*/
+
     return;
 }
 
