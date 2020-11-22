@@ -1338,7 +1338,7 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
         send_buf = (char **) ADIOI_Malloc(nprocs * sizeof(char *));
         send_buf_start = (char *) ADIOI_Malloc(send_total_size+1);
     }
-    #if 1==2
+
     if (myrank != fd->hints->ranklist[0]) {
         /* nprocs >=2 for this case, we are pretty safe to put send_buf[myrank] into the end. */
         send_buf[fd->hints->ranklist[0]] = send_buf_start;
@@ -1351,6 +1351,7 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
         }
         send_buf[myrank] = buf_ptr;
     } else {
+#if 1==2
         /* myrank == first global aggregator, but nprocs can be 1, need to be extra careful.
          * We split into two cases. */
         if (fd->hints->cb_nodes > 1) {
@@ -1364,8 +1365,9 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
             /* I am the only rank 0, so I am the start of send_buf_start */
             send_buf[myrank] = send_buf_start;
         }
+#endif
     }
-
+    #if 1==2
     /* data buffer */
     if (buftype_is_contig) {
         for (i = 0; i < nprocs; i++) {
