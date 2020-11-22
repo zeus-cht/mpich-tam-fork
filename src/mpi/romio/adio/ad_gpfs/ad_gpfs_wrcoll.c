@@ -1338,6 +1338,7 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
         send_buf = (char **) ADIOI_Malloc(nprocs * sizeof(char *));
         send_buf_start = (char *) ADIOI_Malloc(send_total_size+1);
     }
+    #if 1==2
     if (myrank != fd->hints->ranklist[0]) {
         /* nprocs >=2 for this case, we are pretty safe to put send_buf[myrank] into the end. */
         send_buf[fd->hints->ranklist[0]] = send_buf_start;
@@ -1364,7 +1365,7 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
             send_buf[myrank] = send_buf_start;
         }
     }
-    #if 1==2
+
     /* data buffer */
     if (buftype_is_contig) {
         for (i = 0; i < nprocs; i++) {
