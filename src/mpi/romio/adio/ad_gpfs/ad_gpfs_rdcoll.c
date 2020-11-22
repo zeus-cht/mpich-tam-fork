@@ -952,7 +952,7 @@ static void ADIOI_TAM_Read_Kernel(ADIO_File fd, int myrank, char* read_contig_bu
                     } else {
                         fd->array_of_blocklengths[0] = fd->local_lens[0];
                         //MPI_Address(fd->local_buf, fd->array_of_displacements);
-                        fd->array_of_displacement = (MPI_Aint) fd->local_buf;
+                        fd->array_of_displacements = (MPI_Aint) fd->local_buf;
                     }
                     local_data_size += fd->array_of_blocklengths[k];
                 }
