@@ -1187,9 +1187,9 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
     /* alltoallv */
     ADIOI_TAM_Read_Kernel(fd, myrank, read_contig_buf, recv_buf, recv_buf_start, send_size, recv_size, nprocs_send, recv_total_size, sum_send, coll_bufsize, partial_send, others_req, count, start_pos);
 
+/*
     requests = (MPI_Request *)
         ADIOI_Malloc((nprocs_send + nprocs_recv + 1) * sizeof(MPI_Request));
-/* allocate memory for recv_buf and post receives */
     recv_buf2 = (char **) ADIOI_Malloc(nprocs * sizeof(char *));
     for (i = 0; i < nprocs; i++) {
         if (recv_size[i])
@@ -1207,7 +1207,6 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
     j = 0;
     for (i = 0; i < nprocs; i++) {
         if (send_size[i]) {
-/* take care if the last off-len pair is a partial send */
             if (partial_send[i]) {
                 k = start_pos[i] + count[i] - 1;
                 tmp = others_req[i].lens[k];
@@ -1217,7 +1216,7 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
                                          &(others_req[i].lens[start_pos[i]]),
                                          &(others_req[i].mem_ptrs[start_pos[i]]),
                                          MPI_BYTE, &send_type);
-            /* absolute displacement; use MPI_BOTTOM in send */
+
             MPI_Type_commit(&send_type);
             MPI_Isend(MPI_BOTTOM, 1, send_type, i, myrank + i + 100 * iter,
                       fd->comm, requests + nprocs_recv + j);
@@ -1229,7 +1228,7 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
     }
     MPI_Waitall(nprocs_recv, requests, MPI_STATUSES_IGNORE);
     MPI_Waitall(nprocs_send, requests + nprocs_recv, MPI_STATUSES_IGNORE);
-/*
+
     for ( i = 0; i < nprocs; ++i ) {
         for ( k = 0; k < recv_size[i]; ++k ) {
             if ( recv_buf[i] != recv_buf2[i] ) {
@@ -1239,12 +1238,13 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
             }
         }
     }
-*/
+
     for (i = 0; i < nprocs; i++) {
         if (recv_size[i])
             ADIOI_Free(recv_buf2[i]);
     }
     ADIOI_Free(recv_buf2);
+*/
 
 #if 0
     DBG_FPRINTF(stderr, "\tall_recv_buf = ");
