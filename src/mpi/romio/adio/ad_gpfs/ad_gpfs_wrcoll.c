@@ -858,7 +858,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
                                   others_req, send_buf_idx, curr_to_proc,
                                   done_to_proc, &hole, m, buftype_extent, buf_idx, error_code);
         else if (gpfsmpio_comm == 0)
-
+/*
             ADIOI_TAM_W_Exchange_data_alltoallv(fd, buf, write_buf, tmp_buf, coll_bufsize, flat_buf, offset_list,
                                             len_list, send_size, recv_size, off, size, count,
                                             start_pos, partial_recv,
@@ -868,8 +868,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
                                             others_req, send_buf_idx, curr_to_proc,
                                             done_to_proc, &hole, m, buftype_extent, buf_idx,
                                             error_code);
-
-/*
+*/
             ADIOI_W_Exchange_data_alltoallv(fd, buf, write_buf, flat_buf, offset_list,
                                             len_list, send_size, recv_size, off, size, count,
                                             start_pos, partial_recv,
@@ -879,7 +878,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
                                             others_req, send_buf_idx, curr_to_proc,
                                             done_to_proc, &hole, m, buftype_extent, buf_idx,
                                             error_code);
-*/
+
         if (*error_code != MPI_SUCCESS)
             return;
 #ifdef PROFILE
@@ -960,6 +959,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
                                   curr_to_proc, done_to_proc, &hole, m,
                                   buftype_extent, buf_idx, error_code);
         else if (gpfsmpio_comm == 0)
+/*
             ADIOI_TAM_W_Exchange_data_alltoallv(fd, buf, write_buf, tmp_buf, coll_bufsize, flat_buf, offset_list,
                                             len_list, send_size, recv_size, off, size, count,
                                             start_pos, partial_recv,
@@ -969,8 +969,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
                                             others_req, send_buf_idx,
                                             curr_to_proc, done_to_proc, &hole, m,
                                             buftype_extent, buf_idx, error_code);
-
-/*
+*/
             ADIOI_W_Exchange_data_alltoallv(fd, buf, write_buf, flat_buf, offset_list,
                                             len_list, send_size, recv_size, off, size, count,
                                             start_pos, partial_recv,
@@ -980,7 +979,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
                                             others_req, send_buf_idx,
                                             curr_to_proc, done_to_proc, &hole, m,
                                             buftype_extent, buf_idx, error_code);
-*/
+
     if (*error_code != MPI_SUCCESS)
         return;
 #ifdef PROFILE
