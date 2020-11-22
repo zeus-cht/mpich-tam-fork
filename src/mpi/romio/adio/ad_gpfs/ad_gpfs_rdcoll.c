@@ -1,16 +1,11 @@
-/* ---------------------------------------------------------------- */
-/* (C)Copyright IBM Corp.  2007, 2008                               */
-/* ---------------------------------------------------------------- */
+/*
+ * Copyright (C) by Argonne National Laboratory
+ *     See COPYRIGHT in top-level directory
+ */
+
 /**
  * \file ad_gpfs_rdcoll.c
  * \brief ???
- */
-
-/* -*- Mode: C; c-basic-offset:4 ; -*- */
-/*
- *
- *   Copyright (C) 1997 University of Chicago.
- *   See COPYRIGHT notice in top-level directory.
  */
 
 #include "adio.h"
@@ -89,7 +84,6 @@ static void ADIOI_Fill_user_buffer(ADIO_File fd, void *buf, ADIOI_Flatlist_node
                                    ADIO_Offset fd_size, ADIO_Offset * fd_start,
                                    ADIO_Offset * fd_end, MPI_Aint buftype_extent);
 
-
 extern void ADIOI_Calc_my_off_len(ADIO_File fd, int bufcount, MPI_Datatype
                                   datatype, int file_ptr_type, ADIO_Offset
                                   offset, ADIO_Offset ** offset_list_ptr, ADIO_Offset
@@ -150,10 +144,6 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
 
     MPI_Comm_size(fd->comm, &nprocs);
     MPI_Comm_rank(fd->comm, &myrank);
-
-    if (!myrank) {
-        printf("entered gpfs read function\n");
-    }
 
     /* number of aggregators, cb_nodes, is stored in the hints */
     nprocs_for_coll = fd->hints->cb_nodes;
@@ -560,9 +550,8 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
         /* ntimes=ceiling_div(end_loc - st_loc + 1, coll_bufsize) */
         ntimes = (int) ((end_loc - st_loc + coll_bufsize) / coll_bufsize);
         if (fd->is_agg) {
-            //read_contig_buf = (char *) ADIOI_Malloc(coll_bufsize * sizeof(char));
+            read_contig_buf = (char *) ADIOI_Malloc(coll_bufsize * sizeof(char));
         }
-
     }
 
     MPI_Allreduce(&ntimes, &max_ntimes, 1, MPI_INT, MPI_MAX, fd->comm);
@@ -747,6 +736,7 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
         MPE_Log_event(7, 0, "start communication");
 #endif
         if (gpfsmpio_comm == 1)
+/*
             ADIOI_R_Exchange_data(fd, buf, flat_buf, offset_list, len_list,
                                   send_size, recv_size, count,
                                   start_pos, partial_send, recd_from_proc, nprocs,
@@ -754,8 +744,7 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
                                   buftype_is_contig, contig_access_count,
                                   min_st_offset, fd_size, fd_start, fd_end,
                                   others_req, m, buftype_extent, buf_idx);
-        else if (gpfsmpio_comm == 0) {
-/*
+*/
             ADIOI_TAM_R_Exchange_data_alltoallv(fd, buf, read_contig_buf, coll_bufsize, flat_buf, offset_list, len_list,
                                             send_size, recv_size, count,
                                             start_pos, partial_send, recd_from_proc, nprocs,
@@ -763,7 +752,8 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
                                             buftype_is_contig, contig_access_count,
                                             min_st_offset, fd_size, fd_start, fd_end,
                                             others_req, m, buftype_extent, buf_idx);
-*/
+        else if (gpfsmpio_comm == 0) {
+/*
             ADIOI_R_Exchange_data_alltoallv(fd, buf, flat_buf, offset_list, len_list,
                                             send_size, recv_size, count,
                                             start_pos, partial_send, recd_from_proc, nprocs,
@@ -771,7 +761,14 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
                                             buftype_is_contig, contig_access_count,
                                             min_st_offset, fd_size, fd_start, fd_end,
                                             others_req, m, buftype_extent, buf_idx);
-
+*/
+            ADIOI_TAM_R_Exchange_data_alltoallv(fd, buf, read_contig_buf, coll_bufsize, flat_buf, offset_list, len_list,
+                                            send_size, recv_size, count,
+                                            start_pos, partial_send, recd_from_proc, nprocs,
+                                            myrank,
+                                            buftype_is_contig, contig_access_count,
+                                            min_st_offset, fd_size, fd_start, fd_end,
+                                            others_req, m, buftype_extent, buf_idx);
         }
 #ifdef PROFILE
         MPE_Log_event(8, 0, "end communication");
@@ -811,16 +808,6 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
                                   min_st_offset, fd_size, fd_start, fd_end,
                                   others_req, m, buftype_extent, buf_idx);
         else /* strncmp(env_switch, "alltoall", 8) == 0 */ if (gpfsmpio_comm == 0)
-/*
-            ADIOI_TAM_R_Exchange_data_alltoallv(fd, buf, read_contig_buf, coll_bufsize, flat_buf, offset_list, len_list,
-                                            send_size, recv_size, count,
-                                            start_pos, partial_send, recd_from_proc, nprocs,
-                                            myrank,
-                                            buftype_is_contig, contig_access_count,
-                                            min_st_offset, fd_size, fd_start, fd_end,
-                                            others_req, m, buftype_extent, buf_idx);
-*/
-
             ADIOI_R_Exchange_data_alltoallv(fd, buf, flat_buf, offset_list, len_list,
                                             send_size, recv_size, count,
                                             start_pos, partial_send, recd_from_proc, nprocs,
@@ -840,13 +827,14 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
     ADIOI_Free(recv_size);
     ADIOI_Free(recd_from_proc);
     ADIOI_Free(start_pos);
-    if (fd->is_agg && ((st_loc != -1) || (end_loc != -1)) ) {
-        //ADIOI_Free(read_contig_buf);
-    }
 
+    if (fd->is_agg && ((st_loc != -1) || (end_loc != -1)) ) {
+        ADIOI_Free(read_contig_buf);
+    }
 
     unsetenv("LIBIOLOG_EXTRA_INFO");
 }
+
 
 static void ADIOI_TAM_Pack(char* buf, int* send_size, int* partial_send, ADIOI_Access * others_req, int *count, int *start_pos, int i) {
     int j, k;
