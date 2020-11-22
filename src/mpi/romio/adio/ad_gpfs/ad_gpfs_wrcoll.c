@@ -1194,7 +1194,7 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
         for ( i = 0; i < fd->local_aggregator_size; ++i ) {
             if (fd->local_aggregators[i] != myrank) {
                 if (fd->global_recv_size[i]) {
-                    //MPI_Irecv(buf_ptr, fd->global_recv_size[i], MPI_BYTE, fd->local_aggregators[i], fd->local_aggregators[i] + myrank, fd->comm, &req[j++]);
+                    MPI_Irecv(buf_ptr, fd->global_recv_size[i], MPI_BYTE, fd->local_aggregators[i], fd->local_aggregators[i] + myrank, fd->comm, &req[j++]);
                     buf_ptr += fd->global_recv_size[i];
                 }
             }
