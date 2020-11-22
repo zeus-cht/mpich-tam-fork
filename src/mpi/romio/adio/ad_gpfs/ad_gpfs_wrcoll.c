@@ -1110,6 +1110,7 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
         MPI_Waitall(j, req, sts);
 #endif
     }
+    return;
     /* End of gathering message size */
     /* 2. Intra-node aggregator of data from nonaggregators to local aggregators */
     j = 0;
