@@ -1194,7 +1194,7 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
         for ( i = 0; i < fd->local_aggregator_size; ++i ) {
             if (fd->local_aggregators[i] != myrank) {
                 if (fd->global_recv_size[i]) {
-                    MPI_Irecv(buf_ptr, fd->global_recv_size[i], MPI_BYTE, fd->local_aggregators[i], fd->local_aggregators[i] + myrank, fd->comm, &req[j++]);
+                    //MPI_Irecv(buf_ptr, fd->global_recv_size[i], MPI_BYTE, fd->local_aggregators[i], fd->local_aggregators[i] + myrank, fd->comm, &req[j++]);
                     buf_ptr += fd->global_recv_size[i];
                 }
             }
@@ -1209,6 +1209,7 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
             if (fd->hints->ranklist[i] != myrank) {
                 local_data_size = 0;
                 /* Interleave through local buffer to wrap messages to the same destination with derived dataset. */
+/*
                 for ( k = 0; k < fd->nprocs_aggregator; ++k ) {
                     if (k * fd->hints->cb_nodes + i) {
                         fd->array_of_blocklengths[k] = fd->local_lens[k * fd->hints->cb_nodes + i] - fd->local_lens[k * fd->hints->cb_nodes + i - 1];
@@ -1219,6 +1220,7 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
                     }
                     local_data_size += fd->array_of_blocklengths[k];
                 }
+*/
                 /* Send derived datatype if it is not zero-sized. */
                 if (local_data_size) {
                     MPI_Type_create_hindexed(fd->nprocs_aggregator, fd->array_of_blocklengths, fd->array_of_displacements, MPI_BYTE, fd->new_types + i);
