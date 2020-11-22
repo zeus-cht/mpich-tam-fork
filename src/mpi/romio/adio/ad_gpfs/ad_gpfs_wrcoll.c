@@ -1168,7 +1168,7 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
         MPI_Waitall(j, req, sts);
 #endif
     }
-
+    return;
     /* End of intra-node aggregation phase */
     /* 3. Inter-node aggregation phase of data from local aggregators to global aggregators.
          * Global aggregators know the data size from all processes in recv_size, so there is no need to exchange data size, this can boost performance. */
@@ -1250,7 +1250,7 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
 #endif
     }
     /* End of inter-node aggregation, no more MPI communications. */
-    return;
+
     /* local aggregators free derived datatypes */
     if ( fd->is_local_aggregator ){
         for ( i = 0; i < fd->hints->cb_nodes; ++i){
