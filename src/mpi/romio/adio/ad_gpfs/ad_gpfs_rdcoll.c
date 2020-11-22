@@ -422,14 +422,15 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
      *     requests from proc i lie in this process's file domain.
      */
     if (gpfsmpio_tuneblocking)
-/*
+
         ADIOI_GPFS_Calc_others_req(fd, count_my_req_procs,
                                    count_my_req_per_proc, my_req,
                                    nprocs, myrank, &count_others_req_procs, &others_req);
-*/
+/*
         ADIOI_TAM_Calc_others_req(fd, count_my_req_procs,
                               count_my_req_per_proc, my_req,
                               nprocs, myrank, &count_others_req_procs, &others_req);
+*/
     else
         ADIOI_Calc_others_req(fd, count_my_req_procs,
                               count_my_req_per_proc, my_req,
@@ -442,14 +443,15 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
      */
     ADIOI_Free(count_my_req_per_proc);
     if (gpfsmpio_tuneblocking) {
-/*
+
         for ( i = 0; i < nprocs; ++i ) {
             if ( my_req[i].count ) {
                 ADIOI_Free(my_req[i].offsets);
             }
         }
-*/
+/*
         ADIOI_Free(fd->my_req_buf);
+*/
     } else {
         ADIOI_Free(my_req[0].offsets);
     }
