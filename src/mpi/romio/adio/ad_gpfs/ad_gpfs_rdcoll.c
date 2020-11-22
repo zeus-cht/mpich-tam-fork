@@ -736,7 +736,7 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
         MPE_Log_event(7, 0, "start communication");
 #endif
         if (gpfsmpio_comm == 1)
-/*
+
             ADIOI_R_Exchange_data(fd, buf, flat_buf, offset_list, len_list,
                                   send_size, recv_size, count,
                                   start_pos, partial_send, recd_from_proc, nprocs,
@@ -744,7 +744,8 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
                                   buftype_is_contig, contig_access_count,
                                   min_st_offset, fd_size, fd_start, fd_end,
                                   others_req, m, buftype_extent, buf_idx);
-*/
+
+/*
             ADIOI_TAM_R_Exchange_data_alltoallv(fd, buf, read_contig_buf, coll_bufsize, flat_buf, offset_list, len_list,
                                             send_size, recv_size, count,
                                             start_pos, partial_send, recd_from_proc, nprocs,
@@ -752,8 +753,9 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
                                             buftype_is_contig, contig_access_count,
                                             min_st_offset, fd_size, fd_start, fd_end,
                                             others_req, m, buftype_extent, buf_idx);
+*/
         else if (gpfsmpio_comm == 0) {
-/*
+
             ADIOI_R_Exchange_data_alltoallv(fd, buf, flat_buf, offset_list, len_list,
                                             send_size, recv_size, count,
                                             start_pos, partial_send, recd_from_proc, nprocs,
@@ -761,7 +763,7 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
                                             buftype_is_contig, contig_access_count,
                                             min_st_offset, fd_size, fd_start, fd_end,
                                             others_req, m, buftype_extent, buf_idx);
-*/
+/*
             ADIOI_TAM_R_Exchange_data_alltoallv(fd, buf, read_contig_buf, coll_bufsize, flat_buf, offset_list, len_list,
                                             send_size, recv_size, count,
                                             start_pos, partial_send, recd_from_proc, nprocs,
@@ -769,6 +771,7 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
                                             buftype_is_contig, contig_access_count,
                                             min_st_offset, fd_size, fd_start, fd_end,
                                             others_req, m, buftype_extent, buf_idx);
+*/
         }
 #ifdef PROFILE
         MPE_Log_event(8, 0, "end communication");
@@ -1262,6 +1265,8 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
             ADIOI_Free(recv_buf2[i]);
     }
     ADIOI_Free(recv_buf2);
+    ADIOI_Free(requests);
+
 /*
     if (nprocs_recv) {
         ADIOI_Free(recv_buf_start);
