@@ -1337,37 +1337,35 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
     if ( nprocs_send) {
         send_buf = (char **) ADIOI_Malloc(nprocs * sizeof(char *));
         send_buf_start = (char *) ADIOI_Malloc(send_total_size+1);
+        if (myrank != fd->hints->ranklist[0]) {
+            /* nprocs >=2 for this case, we are pretty safe to put send_buf[myrank] into the end. */
+            send_buf[fd->hints->ranklist[0]] = send_buf_start;
+            buf_ptr = send_buf[fd->hints->ranklist[0]] + send_size[fd->hints->ranklist[0]];
+            for (i = 1; i < fd->hints->cb_nodes; ++i) {
+                if ( fd->hints->ranklist[i] != myrank ) {
+                    send_buf[fd->hints->ranklist[i]] = buf_ptr;
+                    buf_ptr += send_size[fd->hints->ranklist[i]];
+                }
+            }
+            send_buf[myrank] = buf_ptr;
+        } else {
+            /* myrank == first global aggregator, but nprocs can be 1, need to be extra careful.
+             * We split into two cases. */
+            if (fd->hints->cb_nodes > 1) {
+                /* Must check if we have more than 1 global aggregator to enter this block*/
+                send_buf[fd->hints->ranklist[1]] = send_buf_start;
+                for ( i = 2; i < fd->hints->cb_nodes; ++i ) {
+                    send_buf[fd->hints->ranklist[i]] = send_buf[fd->hints->ranklist[i-1]] + send_size[fd->hints->ranklist[i-1]];
+                }
+                send_buf[fd->hints->ranklist[0]] = send_buf[fd->hints->ranklist[fd->hints->cb_nodes - 1]] + send_size[fd->hints->ranklist[fd->hints->cb_nodes - 1]];
+            } else {
+                /* I am the only rank 0, so I am the start of send_buf_start */
+                send_buf[myrank] = send_buf_start;
+            }
+        }
     }
 
-    if (myrank != fd->hints->ranklist[0]) {
-        /* nprocs >=2 for this case, we are pretty safe to put send_buf[myrank] into the end. */
-        send_buf[fd->hints->ranklist[0]] = send_buf_start;
-        buf_ptr = send_buf[fd->hints->ranklist[0]] + send_size[fd->hints->ranklist[0]];
-        for (i = 1; i < fd->hints->cb_nodes; ++i) {
-            if ( fd->hints->ranklist[i] != myrank ) {
-                send_buf[fd->hints->ranklist[i]] = buf_ptr;
-                buf_ptr += send_size[fd->hints->ranklist[i]];
-            }
-        }
-        send_buf[myrank] = buf_ptr;
-    } else {
-#if 1==2
-        /* myrank == first global aggregator, but nprocs can be 1, need to be extra careful.
-         * We split into two cases. */
-        if (fd->hints->cb_nodes > 1) {
-            /* Must check if we have more than 1 global aggregator to enter this block*/
-            send_buf[fd->hints->ranklist[1]] = send_buf_start;
-            for ( i = 2; i < fd->hints->cb_nodes; ++i ) {
-                send_buf[fd->hints->ranklist[i]] = send_buf[fd->hints->ranklist[i-1]] + send_size[fd->hints->ranklist[i-1]];
-            }
-            send_buf[fd->hints->ranklist[0]] = send_buf[fd->hints->ranklist[fd->hints->cb_nodes - 1]] + send_size[fd->hints->ranklist[fd->hints->cb_nodes - 1]];
-        } else {
-            /* I am the only rank 0, so I am the start of send_buf_start */
-            send_buf[myrank] = send_buf_start;
-        }
-#endif
-    }
-    #if 1==2
+
     /* data buffer */
     if (buftype_is_contig) {
         for (i = 0; i < nprocs; i++) {
@@ -1394,7 +1392,7 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
     io_time = MPI_Wtime();
 
     ADIOI_TAM_Write_Kernel(fd, myrank, tmp_buf, send_buf, send_buf_start, send_size, recv_size, nprocs_recv, send_total_size, sum_recv, coll_bufsize, partial_recv, others_req, count, start_pos);
-    #endif
+
     if ( nprocs_send) {
         ADIOI_Free(send_buf_start);
         ADIOI_Free(send_buf);
