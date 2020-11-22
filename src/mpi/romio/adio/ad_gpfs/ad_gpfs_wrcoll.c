@@ -1331,6 +1331,7 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
         }
     }
 
+    #if 1==2
     /* We always put send_buf[myrank] to the end of the contiguous array because we do not want to break contiguous array into two parts after removing it
          * send_buf[myrank] is unpacked directly without participating in communication. */
     if ( nprocs_send) {
@@ -1382,7 +1383,7 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
                                       buftype_extent);
     }
 
-
+    #endif
 
     gpfsmpio_prof_cw[GPFSMPIO_CIO_T_DEXCH_SETUP] += MPI_Wtime() - io_time;
 
