@@ -1338,7 +1338,7 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
         send_buf = (char **) ADIOI_Malloc(nprocs * sizeof(char *));
         send_buf_start = (char *) ADIOI_Malloc(send_total_size+1);
     }
-    #if 1==2
+
     if (myrank != fd->hints->ranklist[0]) {
         /* nprocs >=2 for this case, we are pretty safe to put send_buf[myrank] into the end. */
         send_buf[fd->hints->ranklist[0]] = send_buf_start;
@@ -1365,7 +1365,7 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
             send_buf[myrank] = send_buf_start;
         }
     }
-
+    #if 1==2
     /* data buffer */
     if (buftype_is_contig) {
         for (i = 0; i < nprocs; i++) {
@@ -1392,11 +1392,12 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
     io_time = MPI_Wtime();
 
     ADIOI_TAM_Write_Kernel(fd, myrank, tmp_buf, send_buf, send_buf_start, send_size, recv_size, nprocs_recv, send_total_size, sum_recv, coll_bufsize, partial_recv, others_req, count, start_pos);
+    #endif
     if ( nprocs_send) {
         ADIOI_Free(send_buf_start);
         ADIOI_Free(send_buf);
     }
-    #endif
+
     gpfsmpio_prof_cw[GPFSMPIO_CIO_T_DEXCH_NET] += MPI_Wtime() - io_time;
     io_time = MPI_Wtime();
     /* data sieving pre-read */
