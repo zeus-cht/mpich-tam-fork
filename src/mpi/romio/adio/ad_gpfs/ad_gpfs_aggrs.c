@@ -459,6 +459,11 @@ void ADIOI_GPFS_TAM_Calc_my_req(ADIO_File fd, ADIO_Offset * offset_list, ADIO_Of
     size_t memLen;
     ADIO_Offset fd_len, rem_len, curr_idx, off;
     ADIOI_Access *my_req;
+    int myrank;
+
+    MPI_Comm_rank(fd->comm, &myrank);
+
+
     TRACE_ERR("Entering ADIOI_GPFS_Calc_my_req\n");
 
 #ifdef AGGREGATION_PROFILE
