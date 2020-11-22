@@ -1194,7 +1194,7 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
         for ( i = 0; i < fd->local_aggregator_size; ++i ) {
             if (fd->local_aggregators[i] != myrank) {
                 if (fd->global_recv_size[i]) {
-                    MPI_Irecv(buf_ptr, fd->global_recv_size[i], MPI_BYTE, fd->local_aggregators[i], fd->local_aggregators[i] + myrank, fd->comm, &req[j++]);
+                    //MPI_Irecv(buf_ptr, fd->global_recv_size[i], MPI_BYTE, fd->local_aggregators[i], fd->local_aggregators[i] + myrank, fd->comm, &req[j++]);
                     buf_ptr += fd->global_recv_size[i];
                 }
             }
@@ -1223,7 +1223,7 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
                 if (local_data_size) {
                     MPI_Type_create_hindexed(fd->nprocs_aggregator, fd->array_of_blocklengths, fd->array_of_displacements, MPI_BYTE, fd->new_types + i);
                     MPI_Type_commit(fd->new_types + i);
-                    MPI_Issend(MPI_BOTTOM, 1, fd->new_types[i], fd->hints->ranklist[i], myrank + fd->hints->ranklist[i], fd->comm, &req[j++]);
+                    //MPI_Issend(MPI_BOTTOM, 1, fd->new_types[i], fd->hints->ranklist[i], myrank + fd->hints->ranklist[i], fd->comm, &req[j++]);
                 }
             } else {
                 /* A global aggregator that is also a local aggregator directly unpacks the buffer here. */
@@ -1234,9 +1234,9 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
                         continue;
                     }
                     if ( k * fd->hints->cb_nodes + i ) {
-                        //ADIOI_TAM_Unpack(fd->local_buf + fd->local_lens[k * fd->hints->cb_nodes + i - 1], recv_size, partial_recv, others_req, count, start_pos, fd->aggregator_local_ranks[k]);
+                        ADIOI_TAM_Unpack(fd->local_buf + fd->local_lens[k * fd->hints->cb_nodes + i - 1], recv_size, partial_recv, others_req, count, start_pos, fd->aggregator_local_ranks[k]);
                     } else {
-                        //ADIOI_TAM_Unpack(fd->local_buf, recv_size, partial_recv, others_req, count, start_pos, fd->aggregator_local_ranks[k]);
+                        ADIOI_TAM_Unpack(fd->local_buf, recv_size, partial_recv, others_req, count, start_pos, fd->aggregator_local_ranks[k]);
                     }
                 }
             }
