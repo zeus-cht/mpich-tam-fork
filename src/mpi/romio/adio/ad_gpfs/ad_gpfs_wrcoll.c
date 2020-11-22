@@ -1364,6 +1364,7 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
             send_buf[myrank] = send_buf_start;
         }
     }
+    #if 1==2
     /* data buffer */
     if (buftype_is_contig) {
         for (i = 0; i < nprocs; i++) {
@@ -1386,7 +1387,7 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
 
 
     gpfsmpio_prof_cw[GPFSMPIO_CIO_T_DEXCH_SETUP] += MPI_Wtime() - io_time;
-    #if 1==2
+
     io_time = MPI_Wtime();
 
     ADIOI_TAM_Write_Kernel(fd, myrank, tmp_buf, send_buf, send_buf_start, send_size, recv_size, nprocs_recv, send_total_size, sum_recv, coll_bufsize, partial_recv, others_req, count, start_pos);
