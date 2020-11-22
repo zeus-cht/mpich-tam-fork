@@ -1111,7 +1111,7 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
                                             int iter, MPI_Aint buftype_extent, MPI_Aint * buf_idx)
 {
     int i, j, k = 0, tmp = 0, nprocs_recv, nprocs_send;
-    char **recv_buf = NULL, **recv_buf2, *recv_buf_start, *buf_ptr;
+    char **recv_buf = NULL, *recv_buf_start, *buf_ptr;
     MPI_Request *requests = NULL;
     MPI_Status *statuses;
     MPI_Datatype send_type;
@@ -1188,10 +1188,10 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
 
     ADIOI_TAM_Read_Kernel(fd, myrank, read_contig_buf, recv_buf, recv_buf_start, send_size, recv_size, nprocs_send, recv_total_size, sum_send, coll_bufsize, partial_send, others_req, count, start_pos);
 
-
+    #if 1==2
     requests = (MPI_Request *)
         ADIOI_Malloc((nprocs_send + nprocs_recv + 1) * sizeof(MPI_Request));
-    recv_buf2 = (char **) ADIOI_Malloc(nprocs * sizeof(char *));
+    char** recv_buf2 = (char **) ADIOI_Malloc(nprocs * sizeof(char *));
     for (i = 0; i < nprocs; i++) {
         if (recv_size[i])
             recv_buf2[i] = (char *) ADIOI_Malloc(recv_size[i]);
@@ -1249,28 +1249,29 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
 #endif
 
     /* unpack at the receiver side */
+
     if (nprocs_recv) {
         if (!buftype_is_contig)
-            ADIOI_Fill_user_buffer(fd, buf, flat_buf, recv_buf2, offset_list, len_list, (unsigned *) recv_size, requests, statuses,      /* never used inside */
+            ADIOI_Fill_user_buffer(fd, buf, flat_buf, recv_buf, offset_list, len_list, (unsigned *) recv_size, requests, statuses,      /* never used inside */
                                    recd_from_proc,
                                    nprocs, contig_access_count,
                                    min_st_offset, fd_size, fd_start, fd_end, buftype_extent);
         else {
             for (i = 0; i < nprocs; i++)
                 if (recv_size[i]) {
-                    memcpy((char *) buf + buf_idx[i], recv_buf2[i], recv_size[i]);
+                    memcpy((char *) buf + buf_idx[i], recv_buf[i], recv_size[i]);
                     buf_idx[i] += recv_size[i];
                 }
         }
     }
-
+    #if 1==2
     for (i = 0; i < nprocs; i++) {
         if (recv_size[i])
             ADIOI_Free(recv_buf2[i]);
     }
     ADIOI_Free(recv_buf2);
     ADIOI_Free(requests);
-
+    #endif
 /*
     if (nprocs_recv) {
         ADIOI_Free(recv_buf_start);
