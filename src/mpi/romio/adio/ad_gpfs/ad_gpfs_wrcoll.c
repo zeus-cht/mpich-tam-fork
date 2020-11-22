@@ -1254,7 +1254,7 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
 #endif
     }
     /* End of inter-node aggregation, no more MPI communications. */
-    return;
+
     /* local aggregators free derived datatypes */
     if ( fd->is_local_aggregator ){
         for ( i = 0; i < fd->hints->cb_nodes; ++i){
