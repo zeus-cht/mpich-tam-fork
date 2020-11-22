@@ -1194,7 +1194,7 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
         for ( i = 0; i < fd->local_aggregator_size; ++i ) {
             if (fd->local_aggregators[i] != myrank) {
                 if (fd->global_recv_size[i]) {
-                    //MPI_Irecv(buf_ptr, fd->global_recv_size[i], MPI_BYTE, fd->local_aggregators[i], fd->local_aggregators[i] + myrank, fd->comm, &req[j++]);
+                    MPI_Irecv(buf_ptr, fd->global_recv_size[i], MPI_BYTE, fd->local_aggregators[i], fd->local_aggregators[i] + myrank, fd->comm, &req[j++]);
                     buf_ptr += fd->global_recv_size[i];
                 }
             }
@@ -1212,10 +1212,10 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
                 for ( k = 0; k < fd->nprocs_aggregator; ++k ) {
                     if (k * fd->hints->cb_nodes + i) {
                         fd->array_of_blocklengths[k] = fd->local_lens[k * fd->hints->cb_nodes + i] - fd->local_lens[k * fd->hints->cb_nodes + i - 1];
-                        MPI_Address(fd->local_buf + fd->local_lens[k * fd->hints->cb_nodes + i - 1], fd->array_of_displacements + k);
+                        MPI_Address((void*) (fd->local_buf + fd->local_lens[k * fd->hints->cb_nodes + i - 1]), fd->array_of_displacements + k);
                     } else {
                         fd->array_of_blocklengths[0] = fd->local_lens[0];
-                        MPI_Address(fd->local_buf, fd->array_of_displacements);
+                        MPI_Address((void*) (fd->local_buf), fd->array_of_displacements);
                     }
                     local_data_size += fd->array_of_blocklengths[k];
                 }
@@ -1223,7 +1223,7 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
                 if (local_data_size) {
                     MPI_Type_create_hindexed(fd->nprocs_aggregator, fd->array_of_blocklengths, fd->array_of_displacements, MPI_BYTE, fd->new_types + i);
                     MPI_Type_commit(fd->new_types + i);
-                    //MPI_Issend(MPI_BOTTOM, 1, fd->new_types[i], fd->hints->ranklist[i], myrank + fd->hints->ranklist[i], fd->comm, &req[j++]);
+                    MPI_Issend(MPI_BOTTOM, 1, fd->new_types[i], fd->hints->ranklist[i], myrank + fd->hints->ranklist[i], fd->comm, &req[j++]);
                 }
             } else {
                 /* A global aggregator that is also a local aggregator directly unpacks the buffer here. */
