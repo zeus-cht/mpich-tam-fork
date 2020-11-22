@@ -1000,10 +1000,13 @@ void ADIOI_TAM_Calc_others_req(ADIO_File fd, int count_my_req_procs,
                 for ( k = 0; k < fd->nprocs_aggregator; ++k ) {
                     if (k * fd->hints->cb_nodes + i) {
                         fd->array_of_blocklengths[k] = fd->local_lens[k * fd->hints->cb_nodes + i] - fd->local_lens[k * fd->hints->cb_nodes + i - 1];
-                        MPI_Address(fd->local_buf + fd->local_lens[k * fd->hints->cb_nodes + i - 1], fd->array_of_displacements + k);
+                        /* When we build stand-alone ROMIO library, MPI_Address could fail depending on the production MPI implementation, we use C casting to avoid this problem. */
+                        //MPI_Address(fd->local_buf + fd->local_lens[k * fd->hints->cb_nodes + i - 1], fd->array_of_displacements + k);
+                        fd->array_of_displacements[k] = (MPI_Aint) (fd->local_buf + fd->local_lens[k * fd->hints->cb_nodes + i - 1]);
                     } else {
                         fd->array_of_blocklengths[0] = fd->local_lens[0];
-                        MPI_Address(fd->local_buf, fd->array_of_displacements);
+                        //MPI_Address(fd->local_buf, fd->array_of_displacements);
+                        fd->array_of_displacements[0] = (MPI_Aint) fd->local_buf;
                     }
                     local_data_size += fd->array_of_blocklengths[k];
                 }
