@@ -443,15 +443,15 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
      */
     ADIOI_Free(count_my_req_per_proc);
     if (gpfsmpio_tuneblocking) {
-
+/*
         for ( i = 0; i < nprocs; ++i ) {
             if ( my_req[i].count ) {
                 ADIOI_Free(my_req[i].offsets);
             }
         }
-/*
-        ADIOI_Free(fd->my_req_buf);
 */
+        ADIOI_Free(fd->my_req_buf);
+
     } else {
         ADIOI_Free(my_req[0].offsets);
     }
@@ -471,16 +471,17 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
 
     /* free all memory allocated for collective I/O */
     if (gpfsmpio_tuneblocking) {
+/*
         ADIOI_Free(fd->other_req_buf);
         ADIOI_Free(fd->other_req_mem);
-/*
+*/
         for ( i = 0; i < nprocs; ++i ) {
             if ( others_req[i].count ) {
                 ADIOI_Free(others_req[i].offsets);
                 ADIOI_Free(others_req[i].mem_ptrs);
             }
         }
-*/
+
     } else {
         ADIOI_Free(others_req[0].offsets);
         ADIOI_Free(others_req[0].mem_ptrs);
