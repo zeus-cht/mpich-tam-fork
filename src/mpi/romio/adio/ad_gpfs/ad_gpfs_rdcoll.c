@@ -1229,15 +1229,17 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
     }
     MPI_Waitall(nprocs_recv, requests, MPI_STATUSES_IGNORE);
     MPI_Waitall(nprocs_send, requests + nprocs_recv, MPI_STATUSES_IGNORE);
-
+/*
     for ( i = 0; i < nprocs; ++i ) {
         for ( k = 0; k < recv_size[i]; ++k ) {
             if ( recv_buf[i] != recv_buf2[i] ) {
                 printf("critical error for false byte in read\n");
+                i = nprocs;
+                break;
             }
         }
     }
-
+*/
     for (i = 0; i < nprocs; i++) {
         if (recv_size[i])
             ADIOI_Free(recv_buf2[i]);
