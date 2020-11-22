@@ -145,6 +145,9 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
     MPI_Comm_size(fd->comm, &nprocs);
     MPI_Comm_rank(fd->comm, &myrank);
 
+    if (!myrank)
+    printf("entered read function !!!!\n");
+
     /* number of aggregators, cb_nodes, is stored in the hints */
     nprocs_for_coll = fd->hints->cb_nodes;
     orig_fp = fd->fp_ind;
@@ -944,10 +947,12 @@ static void ADIOI_TAM_Read_Kernel(ADIO_File fd, int myrank, char* read_contig_bu
                 for ( k = 0; k < fd->nprocs_aggregator; ++k ) {
                     if (k * fd->hints->cb_nodes + i) {
                         fd->array_of_blocklengths[k] = fd->local_lens[k * fd->hints->cb_nodes + i] - fd->local_lens[k * fd->hints->cb_nodes + i - 1];
-                        MPI_Address(fd->local_buf + fd->local_lens[k * fd->hints->cb_nodes + i - 1], fd->array_of_displacements + k);
+                        //MPI_Address(fd->local_buf + fd->local_lens[k * fd->hints->cb_nodes + i - 1], fd->array_of_displacements + k);
+                        fd->array_of_displacements[k] = (MPI_Aint) (fd->local_buf + fd->local_lens[k * fd->hints->cb_nodes + i - 1]);
                     } else {
                         fd->array_of_blocklengths[0] = fd->local_lens[0];
-                        MPI_Address(fd->local_buf, fd->array_of_displacements);
+                        //MPI_Address(fd->local_buf, fd->array_of_displacements);
+                        fd->array_of_displacement = (MPI_Aint) fd->local_buf;
                     }
                     local_data_size += fd->array_of_blocklengths[k];
                 }
@@ -1132,7 +1137,7 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
             sum_send += send_size[i];
         }
     }
-    #if 1==2
+
     /* 0. This section first pack local send data into send_buf */
     recv_total_size = 0;
     /* Only global aggregators send data. The rest of recv_size entry must be zero. 
@@ -1177,13 +1182,12 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
             }
         }
     }
-    #endif
+
     /* alltoallv */
 
-/*
+
     ADIOI_TAM_Read_Kernel(fd, myrank, read_contig_buf, recv_buf, recv_buf_start, send_size, recv_size, nprocs_send, recv_total_size, sum_send, coll_bufsize, partial_send, others_req, count, start_pos);
 
-*/
 
     requests = (MPI_Request *)
         ADIOI_Malloc((nprocs_send + nprocs_recv + 1) * sizeof(MPI_Request));
@@ -1225,7 +1229,7 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
     }
     MPI_Waitall(nprocs_recv, requests, MPI_STATUSES_IGNORE);
     MPI_Waitall(nprocs_send, requests + nprocs_recv, MPI_STATUSES_IGNORE);
-/*
+
     for ( i = 0; i < nprocs; ++i ) {
         for ( k = 0; k < recv_size[i]; ++k ) {
             if ( recv_buf[i] != recv_buf2[i] ) {
@@ -1235,7 +1239,7 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
             }
         }
     }
-*/
+
 #if 0
     DBG_FPRINTF(stderr, "\tall_recv_buf = ");
     for (i = 131072; i < 131073; i++) {
