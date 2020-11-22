@@ -335,7 +335,7 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
         ADIOI_OneSidedWriteAggregation(fd, offset_list, len_list, contig_access_count,
                                        buf, datatype, error_code, firstFileOffset, lastFileOffset,
                                        currentValidDataIndex, fd_start, fd_end, &holeFound,
-                                       noStripeParms);
+                                       &noStripeParms);
         int anyHolesFound = 0;
         if (!fd->romio_onesided_no_rmw)
             MPI_Allreduce(&holeFound, &anyHolesFound, 1, MPI_INT, MPI_MAX, fd->comm);
@@ -364,7 +364,7 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
             ADIOI_OneSidedWriteAggregation(fd, offset_list, len_list, contig_access_count, buf,
                                            datatype, error_code, firstFileOffset, lastFileOffset,
                                            currentValidDataIndex, fd_start, fd_end, &holeFound,
-                                           noStripeParms);
+                                           &noStripeParms);
             fd->romio_onesided_no_rmw = prev_romio_onesided_no_rmw;
             GPFSMPIO_T_CIO_REPORT(1, fd, myrank, nprocs);
             ADIOI_Free(offset_list);
