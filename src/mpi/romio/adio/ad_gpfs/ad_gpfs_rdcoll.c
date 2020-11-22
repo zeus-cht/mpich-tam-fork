@@ -403,7 +403,7 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
      *     this is only valid for contiguous buffer case
      */
     if (gpfsmpio_tuneblocking)
-        ADIOI_GPFS_TAM_Calc_my_req(fd, offset_list, len_list, contig_access_count,
+        ADIOI_GPFS_Calc_my_req(fd, offset_list, len_list, contig_access_count,
                                min_st_offset, fd_start, fd_end, fd_size,
                                nprocs, &count_my_req_procs,
                                &count_my_req_per_proc, &my_req, &buf_idx);
@@ -443,15 +443,15 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
      */
     ADIOI_Free(count_my_req_per_proc);
     if (gpfsmpio_tuneblocking) {
-/*
+
         for ( i = 0; i < nprocs; ++i ) {
             if ( my_req[i].count ) {
                 ADIOI_Free(my_req[i].offsets);
             }
         }
-*/
+/*
         ADIOI_Free(fd->my_req_buf);
-
+*/
     } else {
         ADIOI_Free(my_req[0].offsets);
     }
