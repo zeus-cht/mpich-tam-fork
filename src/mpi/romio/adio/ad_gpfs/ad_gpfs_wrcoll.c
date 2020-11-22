@@ -1334,7 +1334,7 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
 
     /* We always put send_buf[myrank] to the end of the contiguous array because we do not want to break contiguous array into two parts after removing it
          * send_buf[myrank] is unpacked directly without participating in communication. */
-    if ( nprocs_send) {
+    if (nprocs_send) {
         send_buf = (char **) ADIOI_Malloc(nprocs * sizeof(char *));
         send_buf_start = (char *) ADIOI_Malloc(send_total_size+1);
         if (myrank != fd->hints->ranklist[0]) {
@@ -1365,7 +1365,7 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
         }
     }
 
-    #if 1==2
+
     /* data buffer */
     if (buftype_is_contig) {
         for (i = 0; i < nprocs; i++) {
@@ -1390,7 +1390,7 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
     gpfsmpio_prof_cw[GPFSMPIO_CIO_T_DEXCH_SETUP] += MPI_Wtime() - io_time;
 
     io_time = MPI_Wtime();
-
+    #if 1==2
     ADIOI_TAM_Write_Kernel(fd, myrank, tmp_buf, send_buf, send_buf_start, send_size, recv_size, nprocs_recv, send_total_size, sum_recv, coll_bufsize, partial_recv, others_req, count, start_pos);
     #endif
     if ( nprocs_send) {
