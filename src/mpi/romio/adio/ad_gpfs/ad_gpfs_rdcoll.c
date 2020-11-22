@@ -1214,7 +1214,7 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
 
     ADIOI_TAM_Read_Kernel(fd, myrank, read_contig_buf, recv_buf, recv_buf_start, send_size, recv_size, nprocs_send, recv_total_size, sum_send, coll_bufsize, partial_send, others_req, count, start_pos);
 
-
+#if 0
     requests = (MPI_Request *)
         ADIOI_Malloc((nprocs_send + nprocs_recv + 1) * sizeof(MPI_Request));
     char** recv_buf2 = (char **) ADIOI_Malloc(nprocs * sizeof(char *));
@@ -1272,6 +1272,7 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
     }
     ADIOI_Free(recv_buf2);
     ADIOI_Free(requests);
+#endif
 
 #if 0
     DBG_FPRINTF(stderr, "\tall_recv_buf = ");
