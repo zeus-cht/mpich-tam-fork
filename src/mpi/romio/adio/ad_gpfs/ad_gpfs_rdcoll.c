@@ -1185,9 +1185,12 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
     }
 
     /* alltoallv */
-    ADIOI_TAM_Read_Kernel(fd, myrank, read_contig_buf, recv_buf, recv_buf_start, send_size, recv_size, nprocs_send, recv_total_size, sum_send, coll_bufsize, partial_send, others_req, count, start_pos);
 
 /*
+    ADIOI_TAM_Read_Kernel(fd, myrank, read_contig_buf, recv_buf, recv_buf_start, send_size, recv_size, nprocs_send, recv_total_size, sum_send, coll_bufsize, partial_send, others_req, count, start_pos);
+
+*/
+
     requests = (MPI_Request *)
         ADIOI_Malloc((nprocs_send + nprocs_recv + 1) * sizeof(MPI_Request));
     recv_buf2 = (char **) ADIOI_Malloc(nprocs * sizeof(char *));
@@ -1228,7 +1231,7 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
     }
     MPI_Waitall(nprocs_recv, requests, MPI_STATUSES_IGNORE);
     MPI_Waitall(nprocs_send, requests + nprocs_recv, MPI_STATUSES_IGNORE);
-
+/*
     for ( i = 0; i < nprocs; ++i ) {
         for ( k = 0; k < recv_size[i]; ++k ) {
             if ( recv_buf[i] != recv_buf2[i] ) {
@@ -1238,14 +1241,7 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
             }
         }
     }
-
-    for (i = 0; i < nprocs; i++) {
-        if (recv_size[i])
-            ADIOI_Free(recv_buf2[i]);
-    }
-    ADIOI_Free(recv_buf2);
 */
-
 #if 0
     DBG_FPRINTF(stderr, "\tall_recv_buf = ");
     for (i = 131072; i < 131073; i++) {
@@ -1257,18 +1253,25 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
     /* unpack at the receiver side */
     if (nprocs_recv) {
         if (!buftype_is_contig)
-            ADIOI_Fill_user_buffer(fd, buf, flat_buf, recv_buf, offset_list, len_list, (unsigned *) recv_size, requests, statuses,      /* never used inside */
+            ADIOI_Fill_user_buffer(fd, buf, flat_buf, recv_buf2, offset_list, len_list, (unsigned *) recv_size, requests, statuses,      /* never used inside */
                                    recd_from_proc,
                                    nprocs, contig_access_count,
                                    min_st_offset, fd_size, fd_start, fd_end, buftype_extent);
         else {
             for (i = 0; i < nprocs; i++)
                 if (recv_size[i]) {
-                    memcpy((char *) buf + buf_idx[i], recv_buf[i], recv_size[i]);
+                    memcpy((char *) buf + buf_idx[i], recv_buf2[i], recv_size[i]);
                     buf_idx[i] += recv_size[i];
                 }
         }
     }
+
+    for (i = 0; i < nprocs; i++) {
+        if (recv_size[i])
+            ADIOI_Free(recv_buf2[i]);
+    }
+    ADIOI_Free(recv_buf2);
+
     if (nprocs_recv) {
         ADIOI_Free(recv_buf_start);
         ADIOI_Free(recv_buf);
