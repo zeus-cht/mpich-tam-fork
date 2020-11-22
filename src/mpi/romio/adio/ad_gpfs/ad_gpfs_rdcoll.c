@@ -145,9 +145,6 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
     MPI_Comm_size(fd->comm, &nprocs);
     MPI_Comm_rank(fd->comm, &myrank);
 
-    if (!myrank)
-    printf("entered read function !!!!\n");
-
     /* number of aggregators, cb_nodes, is stored in the hints */
     nprocs_for_coll = fd->hints->cb_nodes;
     orig_fp = fd->fp_ind;
@@ -392,7 +389,7 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
      *     this is only valid for contiguous buffer case
      */
     if (gpfsmpio_tuneblocking)
-        ADIOI_GPFS_Calc_my_req(fd, offset_list, len_list, contig_access_count,
+        ADIOI_GPFS_TAM_Calc_my_req(fd, offset_list, len_list, contig_access_count,
                                min_st_offset, fd_start, fd_end, fd_size,
                                nprocs, &count_my_req_procs,
                                &count_my_req_per_proc, &my_req, &buf_idx);
@@ -411,9 +408,14 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
      *     requests from proc i lie in this process's file domain.
      */
     if (gpfsmpio_tuneblocking)
+/*
         ADIOI_GPFS_Calc_others_req(fd, count_my_req_procs,
                                    count_my_req_per_proc, my_req,
                                    nprocs, myrank, &count_others_req_procs, &others_req);
+*/
+        ADIOI_TAM_Calc_others_req(fd, count_my_req_procs,
+                              count_my_req_per_proc, my_req,
+                              nprocs, myrank, &count_others_req_procs, &others_req);
     else
         ADIOI_Calc_others_req(fd, count_my_req_procs,
                               count_my_req_per_proc, my_req,
@@ -426,11 +428,14 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
      */
     ADIOI_Free(count_my_req_per_proc);
     if (gpfsmpio_tuneblocking) {
+/*
         for ( i = 0; i < nprocs; ++i ) {
             if ( my_req[i].count ) {
                 ADIOI_Free(my_req[i].offsets);
             }
         }
+*/
+        ADIOI_Free(fd->my_req_buf);
     } else {
         ADIOI_Free(my_req[0].offsets);
     }
@@ -450,12 +455,16 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
 
     /* free all memory allocated for collective I/O */
     if (gpfsmpio_tuneblocking) {
+        ADIOI_Free(fd->other_req_buf);
+        ADIOI_Free(fd->other_req_mem);
+/*
         for ( i = 0; i < nprocs; ++i ) {
             if ( others_req[i].count ) {
                 ADIOI_Free(others_req[i].offsets);
                 ADIOI_Free(others_req[i].mem_ptrs);
             }
         }
+*/
     } else {
         ADIOI_Free(others_req[0].offsets);
         ADIOI_Free(others_req[0].mem_ptrs);
