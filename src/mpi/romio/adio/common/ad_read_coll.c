@@ -825,7 +825,7 @@ static void ADIOI_TAM_Pack(char* buf, int* send_size, int* partial_send, ADIOI_A
     return;
 }
 
-static void ADIOI_TAM_Read_Kernel(ADIO_File fd, int myrank, char* read_contig_buf, char** recv_buf, char* recv_buf_start, int* send_size, int* recv_size, int nprocs_send, size_t recv_total_size, int sum_send, int coll_bufsize, int* partial_send, ADIOI_Access * others_req, int *count, int *start_pos) {
+void ADIOI_TAM_Read_Kernel(ADIO_File fd, int myrank, char* read_contig_buf, char** recv_buf, char* recv_buf_start, int* send_size, int* recv_size, int nprocs_send, size_t recv_total_size, int sum_send, int coll_bufsize, int* partial_send, ADIOI_Access * others_req, int *count, int *start_pos) {
     /* Requests for TAM */
     int i, j, k, w, x, tmp;
     MPI_Aint local_data_size;

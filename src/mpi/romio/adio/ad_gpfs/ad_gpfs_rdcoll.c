@@ -24,6 +24,8 @@
 #include "mpe.h"
 #endif
 
+void ADIOI_TAM_Read_Kernel(ADIO_File fd, int myrank, char* read_contig_buf, char** recv_buf, char* recv_buf_start, int* send_size, int* recv_size, int nprocs_send, size_t recv_total_size, int sum_send, int coll_bufsize, int* partial_send, ADIOI_Access * others_req, int *count, int *start_pos);
+
 /* prototypes of functions used for collective reads only. */
 static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
                                 datatype, int nprocs,
@@ -106,7 +108,7 @@ void ADIOI_TAM_Calc_others_req(ADIO_File fd, int count_my_req_procs,
                            int nprocs, int myrank,
                            int *count_others_req_procs_ptr, ADIOI_Access ** others_req_ptr);
 
-static void ADIOI_TAM_Read_Kernel(ADIO_File fd, int myrank, char* read_contig_buf, char** recv_buf, char* recv_buf_start, int* send_size, int* recv_size, int nprocs_send, size_t recv_total_size, int sum_send, int coll_bufsize, int* partial_send, ADIOI_Access * others_req, int *count, int *start_pos);
+
 
 
 void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
