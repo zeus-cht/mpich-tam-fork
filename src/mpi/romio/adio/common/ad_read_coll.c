@@ -1071,14 +1071,12 @@ static void ADIOI_TAM_R_Exchange_data(ADIO_File fd, void *buf, char* agg_buf, in
                                   ADIOI_Access * others_req,
                                   int iter, MPI_Aint buftype_extent, MPI_Aint * buf_idx)
 {
-    int i, j, k = 0, tmp = 0, nprocs_recv, nprocs_send;
+    int i, nprocs_recv, nprocs_send;
     int sum_send;
-    char **recv_buf = NULL, *contig_buf, *buf_ptr, *recv_buf_start;
+    char **recv_buf = NULL, *buf_ptr, *recv_buf_start;
     size_t memLen, recv_total_size;
-    MPI_Aint local_data_size;
-    /* Requests for TAM */
-    MPI_Request *req = fd->req;
-    MPI_Status *sts = fd->sts;
+    MPI_Request *req = NULL;
+    MPI_Status *sts = NULL;
 
 /* exchange send_size info so that each process knows how much to
    receive from whom and how much memory to allocate. */
@@ -1145,7 +1143,7 @@ static void ADIOI_TAM_R_Exchange_data(ADIO_File fd, void *buf, char* agg_buf, in
         }
     }
     ADIOI_TAM_Read_Kernel(fd, myrank, agg_buf, recv_buf, recv_buf_start, send_size, recv_size, nprocs_send, recv_total_size, sum_send, coll_bufsize, partial_send, others_req, count, start_pos);
-/*
+
     if (nprocs_recv) {
         if (buftype_is_contig) {
             for (i = 0; i < nprocs; i++) {
@@ -1161,10 +1159,11 @@ static void ADIOI_TAM_R_Exchange_data(ADIO_File fd, void *buf, char* agg_buf, in
                                    min_st_offset, fd_size, fd_start, fd_end, buftype_extent);
         }
     }
-*/
 
 
+    #if 0
     /* End of intra-node aggregation phase */
+    int j, k, tmp = 0;
     char** recv_buf2;
     MPI_Request *requests;
     MPI_Datatype send_type;
@@ -1287,14 +1286,15 @@ static void ADIOI_TAM_R_Exchange_data(ADIO_File fd, void *buf, char* agg_buf, in
             }
         }
     }
-
     if (nprocs_recv) {
-
         if (!buftype_is_contig) {
             ADIOI_Free(recv_buf2[0]);
         }
         ADIOI_Free(recv_buf2);
+    }
+    #endif
 
+    if (nprocs_recv) {
         ADIOI_Free(recv_buf_start);
         ADIOI_Free(recv_buf);
     }
