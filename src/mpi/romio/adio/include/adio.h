@@ -261,6 +261,8 @@ typedef struct ADIOI_FileD {
     int **local_aggregator_domain;
     int *local_aggregator_domain_size;
     int global_aggregator_index;
+    /*Only used by Benvolio driver. We need the int64.*/
+    uint64_t *bv_meta_data;
 } ADIOI_FileD;
 
 typedef struct ADIOI_FileD *ADIO_File;

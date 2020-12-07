@@ -502,6 +502,8 @@ int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, in
             /* Used to store prefix-sum (inclusive) of local_send_size, we want to be extra careful to not to overflow integers. */
             fd->local_lens = (MPI_Aint*) ADIOI_Malloc(sizeof(MPI_Aint) * nprocs * fd->nprocs_aggregator);
             fd->local_send_size = (int*) ADIOI_Malloc(sizeof(int) * fd->hints->cb_nodes * fd->nprocs_aggregator);
+            /* For Benvolio driver implementation only.*/
+            fd->bv_meta_data = (MPI_Aint*) ADIOI_Malloc(2 * sizeof(uint64_t) * fd->nprocs_aggregator);
             i += fd->hints->cb_nodes;
         }
         /* status and request variables used by TAM, we malloc once.

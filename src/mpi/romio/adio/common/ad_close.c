@@ -27,6 +27,7 @@ void ADIO_Close(ADIO_File fd, int *error_code)
         ADIOI_Free(fd->new_types);
         ADIOI_Free(fd->array_of_displacements);
         ADIOI_Free(fd->array_of_blocklengths);
+        ADIOI_Free(fd->bv_meta_data);
     }
     ADIOI_Free(fd->cb_send_size);
     if (fd->local_buf_size) {
