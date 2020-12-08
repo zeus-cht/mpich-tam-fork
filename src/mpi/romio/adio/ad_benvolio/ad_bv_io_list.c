@@ -455,8 +455,8 @@ int ADIOI_BV_StridedListIO(ADIO_File fd, void *buf, int count,
     MPI_Aint filetype_extent = -1, buftype_extent = -1;;
 
     /* parameters for TAM */
-    off_t **local_file_offset;
-    uint64_t **local_offset_length;
+    off_t *local_file_offset;
+    uint64_t *local_offset_length;
 
     static char myname[] = "ADIOI_BV_STRIDED_LISTIO";
 
