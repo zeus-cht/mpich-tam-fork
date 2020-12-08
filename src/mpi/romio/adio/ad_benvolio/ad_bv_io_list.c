@@ -613,7 +613,7 @@ int ADIOI_BV_StridedListIO(ADIO_File fd, void *buf, int count,
 #endif
 
         /* Local aggregators gather I/O requests from the processes they are responsible for. */
-        //ADIOI_BV_TAM(fd, buf, count, datatype, buf_ol_count, buf_off_arr, buf_len_arr, file_ol_count, file_off_arr, file_len_arr, &local_file_offset, &local_offset_length);
+        ADIOI_BV_TAM(fd, buf, count, datatype, buf_ol_count, buf_off_arr, buf_len_arr, file_ol_count, file_off_arr, file_len_arr, &local_file_offset, &local_offset_length);
         /* Run list I/O operation */
         if (rw_type == READ_OP) {
             response =
