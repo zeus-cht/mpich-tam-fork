@@ -274,7 +274,7 @@ static void print_buf_file_ol_pairs(char *buf_off_arr[],
 }
 #endif
 
-static void ADIOI_BV_TAM_write(ADIO_File fd, const char* buf, const int count, MPI_Datatype datatype, const int64_t mem_count, const char **mem_addresses, const uint64_t *mem_sizes, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests) {
+static void ADIOI_BV_TAM_write(ADIO_File fd, const char* buf, const int count, MPI_Datatype datatype, const int64_t mem_count, const char **mem_addresses, const uint64_t *mem_sizes, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests, int64_t *total_mem_size) {
     int i, j, k, myrank;
     uint64_t total_memory = 0;
     /* First one is the total number of file offsets to be accessed, the second one is the total memory size. */
@@ -346,6 +346,7 @@ static void ADIOI_BV_TAM_write(ADIO_File fd, const char* buf, const int count, M
         *file_offset_ptr = file_offset;
         *offset_length_ptr = offset_length;
         *number_of_requests = (int64_t) local_contig_req;
+        *total_mem_size = (uint64_t) local_data_size;
 
         buf_ptr = fd->local_buf;
         off_ptr = file_offset;
@@ -423,6 +424,165 @@ static void ADIOI_BV_TAM_write(ADIO_File fd, const char* buf, const int count, M
     
 }
 
+static void ADIOI_BV_TAM_pre_read(const int64_t mem_count, const uint64_t *mem_sizes, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests, int64_t *total_mem_size) {
+    int i, j, k, myrank;
+    uint64_t total_memory = 0;
+    /* First one is the total number of file offsets to be accessed, the second one is the total memory size. */
+    uint64_t bv_meta_data[2];
+    uint64_t local_data_size, local_contig_req;
+    size_t temp;
+    off_t *file_offset, *off_ptr;
+    uint64_t *offset_length, *uint64_ptr;
+    char *buf_ptr, *tmp_ptr;
+    MPI_Datatype new_types2[2];
+    MPI_Datatype new_type, new_type2, *new_types;
+    int array_of_blocklengths[2];
+    MPI_Count array_of_blocklengths_64[2];
+    MPI_Aint array_of_displacements[2];
+
+    MPI_Request *req = fd->req;
+    MPI_Status *sts = fd->sts;
+    MPI_Comm_rank(fd->comm, &myrank);
+    /* First one is the number of I/O requests. The second one is the size of data (total I/O accesses size). */
+    bv_meta_data[0] = (uint64_t) file_count;
+    bv_meta_data[1] = 0;
+    for ( i = 0; i < mem_count; ++i ) {
+        bv_meta_data[1] += mem_sizes[i];
+    }
+
+    j = 0;
+    if (fd->is_local_aggregator) {
+        for ( i = 0; i < fd->nprocs_aggregator; ++i ) {
+            if ( fd->aggregator_local_ranks[i] != myrank ){
+                MPI_Irecv(fd->bv_meta_data + 2 * i, 2, MPI_UINT64_T, fd->aggregator_local_ranks[i], fd->aggregator_local_ranks[i] + myrank, fd->comm, &req[j++]);
+            } else {
+                fd->bv_meta_data[2 * i] = bv_meta_data[0];
+                fd->bv_meta_data[2 * i + 1] = bv_meta_data[1];
+            }
+        }
+    }
+    /* Send message size to local aggregators*/
+    if ( fd->my_local_aggregator != myrank ){
+        MPI_Issend(bv_meta_data, 2, MPI_UINT64_T, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
+    }
+    if (j) {
+#ifdef MPI_STATUSES_IGNORE
+        MPI_Waitall(j, req, MPI_STATUSES_IGNORE);
+#else
+        MPI_Waitall(j, req, sts);
+#endif
+    }
+    j = 0;
+    if (fd->is_local_aggregator) {
+        local_data_size = 0;
+        local_contig_req = 0;
+        for ( i = 0; i < fd->nprocs_aggregator; ++i ) {
+            local_contig_req += fd->bv_meta_data[2 * i];
+            local_data_size += fd->bv_meta_data[2 * i + 1];
+        }
+        /* One buffer for both data and metadata
+         * Data buffer comes first, then offsets, finally lengths of the offsets */
+        temp = (size_t) ( local_data_size * sizeof(char) + local_contig_req * (sizeof(uint64_t) + sizeof(off_t)) );
+        if ( fd->local_buf_size < temp ){
+            if (fd->local_buf_size) {
+                ADIOI_Free(fd->local_buf);
+            }
+            fd->local_buf_size = temp;
+            fd->local_buf = (char *) ADIOI_Malloc( temp );
+        }
+        file_offset = (off_t*) (fd->local_buf + local_data_size);
+        offset_length = (uint64_t*) (file_offset + local_contig_req);
+
+        *file_offset_ptr = file_offset;
+        *offset_length_ptr = offset_length;
+        *number_of_requests = (int64_t) local_contig_req;
+        *total_mem_size = (uint64_t) local_data_size;
+
+        buf_ptr = fd->local_buf;
+        off_ptr = file_offset;
+        uint64_ptr = offset_length;
+        new_types = (MPI_Datatype *) ADIOI_Malloc((fd->nprocs_aggregator+1) * sizeof(MPI_Datatype));
+        for ( i = 0; i < fd->nprocs_aggregator; i++) {
+            if ( myrank != fd->aggregator_local_ranks[i] ) {
+                array_of_blocklengths[0] = sizeof(off_t) * fd->bv_meta_data[2 * i];
+                array_of_blocklengths[1] = sizeof(uint64_t) * fd->bv_meta_data[2 * i];
+                array_of_displacements[0] = (MPI_Aint) off_ptr;
+                array_of_displacements[1] = (MPI_Aint) uint64_ptr;
+                MPI_Type_create_hindexed(2, array_of_blocklengths, array_of_displacements, MPI_BYTE, new_types + i);
+                MPI_Type_commit(new_types + i);
+
+                MPI_Irecv(MPI_BOTTOM, 1, 
+                          new_types[i], fd->aggregator_local_ranks[i], fd->aggregator_local_ranks[i] + myrank, fd->comm, &req[j++]);
+                MPI_Type_free(new_types+i);
+            }
+            buf_ptr += fd->bv_meta_data[2 * i + 1];
+            off_ptr += fd->bv_meta_data[2 * i];
+            uint64_ptr += fd->bv_meta_data[2 * i];
+        }
+        ADIOI_Free(new_types);
+    }
+    if ( fd->my_local_aggregator != myrank ){
+        /* Data comes first, then offsets, finally lengths at the offsets*/
+        array_of_blocklengths[0] = (MPI_Count) sizeof(off_t) * file_count;
+        array_of_blocklengths[1] = (MPI_Count) sizeof(uint64_t) * file_count;
+        array_of_displacements[0] = (MPI_Aint) file_starts;
+        array_of_displacements[1] = (MPI_Aint) file_sizes;
+
+        MPI_Type_create_hindexed(2, array_of_blocklengths, array_of_displacements, MPI_BYTE, &new_type);
+
+        MPI_Type_commit(&new_type);
+        MPI_Isend(MPI_BOTTOM, 1, new_type, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
+    }
+
+    if (j) {
+#ifdef MPI_STATUSES_IGNORE
+        MPI_Waitall(j, req, MPI_STATUSES_IGNORE);
+#else
+        MPI_Waitall(j, req, sts);
+#endif
+    }
+}
+
+static void ADIOI_BV_TAM_post_read(ADIO_File fd, const char* buf, const int count, MPI_Datatype datatype, const int64_t mem_count, const char **mem_addresses, const uint64_t *mem_sizes) {
+    int i, j, k, myrank;
+    char *buf_ptr, *tmp_ptr;
+
+    MPI_Request *req = fd->req;
+    MPI_Status *sts = fd->sts;
+    MPI_Comm_rank(fd->comm, &myrank);
+
+    j = 0;
+    if ( fd->my_local_aggregator != myrank ){
+        MPI_Irecv(buf, count, datatype, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
+    }
+    if (fd->is_local_aggregator) {
+        buf_ptr = fd->local_buf;
+        for ( i = 0; i < fd->nprocs_aggregator; i++) {
+            if ( myrank != fd->aggregator_local_ranks[i] ) {
+                MPI_Issend(buf_ptr, count, 
+                          datatype, fd->aggregator_local_ranks[i], fd->aggregator_local_ranks[i] + myrank, fd->comm, &req[j++]);
+            } else {
+                tmp_ptr = buf_ptr;
+                for ( k = 0; k < mem_count; ++k ) {
+                    memcpy((void*)mem_addresses[k], (void*)tmp_ptr, sizeof(char) * mem_sizes[k]);
+                    tmp_ptr += mem_sizes[k];
+                }
+            }
+            buf_ptr += fd->bv_meta_data[2 * i + 1];
+        }
+        ADIOI_Free(new_types);
+    }
+
+    if (j) {
+#ifdef MPI_STATUSES_IGNORE
+        MPI_Waitall(j, req, MPI_STATUSES_IGNORE);
+#else
+        MPI_Waitall(j, req, sts);
+#endif
+    }
+    
+}
+
 int ADIOI_BV_StridedListIO(ADIO_File fd, void *buf, int count,
                                MPI_Datatype datatype, int file_ptr_type,
                                ADIO_Offset offset, ADIO_Status * status,
@@ -458,7 +618,7 @@ int ADIOI_BV_StridedListIO(ADIO_File fd, void *buf, int count,
     /* parameters for TAM */
     off_t *local_file_offset;
     uint64_t *local_offset_length;
-    int64_t number_of_requests;
+    int64_t number_of_requests, local_data_size;
 
     static char myname[] = "ADIOI_BV_STRIDED_LISTIO";
 
@@ -616,20 +776,26 @@ int ADIOI_BV_StridedListIO(ADIO_File fd, void *buf, int count,
 
         /* Run list I/O operation */
         if (rw_type == READ_OP) {
+/*
+            ADIOI_BV_TAM_pre_read(buf_ol_count, buf_len_arr, file_ol_count, file_off_arr, file_len_arr, &local_file_offset, &local_offset_length, &number_of_requests);
+*/
             response =
                 bv_read(fd->fs_ptr, fd->filename, buf_ol_count, (const char **) buf_off_arr,
                             buf_len_arr, file_ol_count, file_off_arr, file_len_arr);
+            //ADIOI_BV_TAM_post_read(fd, buf, count, datatype, buf_ol_count, (const char **) buf_off_arr, buf_len_arr);
         } else {
             /* Local aggregators gather I/O requests from the processes they are responsible for. */
-            ADIOI_BV_TAM_write(fd, buf, count, datatype, buf_ol_count, (const char **) buf_off_arr, buf_len_arr, file_ol_count, file_off_arr, file_len_arr, &local_file_offset, &local_offset_length, &number_of_requests);
+            ADIOI_BV_TAM_write(fd, buf, count, datatype, buf_ol_count, (const char **) buf_off_arr, buf_len_arr, file_ol_count, file_off_arr, file_len_arr, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
 /*
             response =
                 bv_write(fd->fs_ptr, fd->filename, buf_ol_count, (const char **) buf_off_arr,
                              buf_len_arr, file_ol_count, file_off_arr, file_len_arr);
 */
-            response =
-                bv_write(fd->fs_ptr, fd->filename, buf_ol_count, (const char **) buf_off_arr,
-                             buf_len_arr, number_of_requests, local_file_offset, local_offset_length);
+            if (fd->is_local_aggregator) {
+                response =
+                    bv_write(fd->fs_ptr, fd->filename, 1, &(fd->local_buf),
+                             &local_data_size, number_of_requests, local_file_offset, local_offset_length);
+            }
         }
         if (response == -1) {
             fprintf(stderr, "ADIOI_BV_StridedListIO: Warning - bv_"
