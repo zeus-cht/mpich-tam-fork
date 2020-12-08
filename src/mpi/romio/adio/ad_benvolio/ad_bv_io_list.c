@@ -274,7 +274,7 @@ static void print_buf_file_ol_pairs(char *buf_off_arr[],
 }
 #endif
 
-void ADIOI_BV_TAM(ADIO_File fd, const char* buf, const int count, MPI_Datatype datatype, const int64_t mem_count, const char **mem_addresses, const uint64_t *mem_sizes, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr) {
+static void ADIOI_BV_TAM_write(ADIO_File fd, const char* buf, const int count, MPI_Datatype datatype, const int64_t mem_count, const char **mem_addresses, const uint64_t *mem_sizes, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests) {
     int i, j, k, myrank;
     uint64_t total_memory = 0;
     /* First one is the total number of file offsets to be accessed, the second one is the total memory size. */
@@ -345,6 +345,7 @@ void ADIOI_BV_TAM(ADIO_File fd, const char* buf, const int count, MPI_Datatype d
 
         *file_offset_ptr = file_offset;
         *offset_length_ptr = offset_length;
+        *number_of_requests = (int64_t) local_contig_req;
 
         buf_ptr = fd->local_buf;
         off_ptr = file_offset;
@@ -457,6 +458,7 @@ int ADIOI_BV_StridedListIO(ADIO_File fd, void *buf, int count,
     /* parameters for TAM */
     off_t *local_file_offset;
     uint64_t *local_offset_length;
+    int64_t number_of_requests;
 
     static char myname[] = "ADIOI_BV_STRIDED_LISTIO";
 
@@ -612,17 +614,22 @@ int ADIOI_BV_StridedListIO(ADIO_File fd, void *buf, int count,
 #endif
 #endif
 
-        /* Local aggregators gather I/O requests from the processes they are responsible for. */
-        ADIOI_BV_TAM(fd, buf, count, datatype, buf_ol_count, (const char **) buf_off_arr, buf_len_arr, file_ol_count, file_off_arr, file_len_arr, &local_file_offset, &local_offset_length);
         /* Run list I/O operation */
         if (rw_type == READ_OP) {
             response =
                 bv_read(fd->fs_ptr, fd->filename, buf_ol_count, (const char **) buf_off_arr,
                             buf_len_arr, file_ol_count, file_off_arr, file_len_arr);
         } else {
+            /* Local aggregators gather I/O requests from the processes they are responsible for. */
+            ADIOI_BV_TAM_write(fd, buf, count, datatype, buf_ol_count, (const char **) buf_off_arr, buf_len_arr, file_ol_count, file_off_arr, file_len_arr, &local_file_offset, &local_offset_length, &number_of_requests);
+/*
             response =
                 bv_write(fd->fs_ptr, fd->filename, buf_ol_count, (const char **) buf_off_arr,
                              buf_len_arr, file_ol_count, file_off_arr, file_len_arr);
+*/
+            response =
+                bv_write(fd->fs_ptr, fd->filename, buf_ol_count, (const char **) buf_off_arr,
+                             buf_len_arr, number_of_requests, local_file_offset, local_offset_length);
         }
         if (response == -1) {
             fprintf(stderr, "ADIOI_BV_StridedListIO: Warning - bv_"
