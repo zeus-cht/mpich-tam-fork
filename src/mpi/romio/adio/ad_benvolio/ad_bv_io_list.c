@@ -274,7 +274,7 @@ static void print_buf_file_ol_pairs(char *buf_off_arr[],
 }
 #endif
 
-void ADIOI_BV_TAM(ADIO_File fd, const char* buf, const int count, MPI_Datatype datatype, const int64_t mem_count, const char *mem_addresses[], const uint64_t mem_sizes[], const int64_t file_count, const off_t file_starts[], const uint64_t file_sizes[], off_t **file_offset_ptr, uint64_t **offset_length_ptr) {
+void ADIOI_BV_TAM(ADIO_File fd, const char* buf, const int count, MPI_Datatype datatype, const int64_t mem_count, const char **mem_addresses, const uint64_t *mem_sizes, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr) {
     int i, j, k, myrank;
     uint64_t total_memory = 0;
     /* First one is the total number of file offsets to be accessed, the second one is the total memory size. */
@@ -367,7 +367,7 @@ void ADIOI_BV_TAM(ADIO_File fd, const char* buf, const int count, MPI_Datatype d
             } else {
                 tmp_ptr = buf_ptr;
                 for ( k = 0; k < mem_count; ++k ) {
-                    memcpy((void*)tmp_ptr, mem_addresses[k], sizeof(char) * mem_sizes[k]);
+                    memcpy((void*)tmp_ptr, (void*)mem_addresses[k], sizeof(char) * mem_sizes[k]);
                     tmp_ptr += mem_sizes[k];
                 }
             }
