@@ -424,7 +424,7 @@ static void ADIOI_BV_TAM_write(ADIO_File fd, const char* buf, const int count, M
     
 }
 
-static void ADIOI_BV_TAM_pre_read(const int64_t mem_count, const uint64_t *mem_sizes, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests, int64_t *total_mem_size) {
+static void ADIOI_BV_TAM_pre_read(ADIO_File fd, const int64_t mem_count, const uint64_t *mem_sizes, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests, int64_t *total_mem_size) {
     int i, j, k, myrank;
     uint64_t total_memory = 0;
     /* First one is the total number of file offsets to be accessed, the second one is the total memory size. */
@@ -543,7 +543,7 @@ static void ADIOI_BV_TAM_pre_read(const int64_t mem_count, const uint64_t *mem_s
     }
 }
 
-static void ADIOI_BV_TAM_post_read(ADIO_File fd, const char* buf, const int count, MPI_Datatype datatype, const int64_t mem_count, const char **mem_addresses, const uint64_t *mem_sizes) {
+static void ADIOI_BV_TAM_post_read(ADIO_File fd, char* buf, const int count, MPI_Datatype datatype, const int64_t mem_count, const char **mem_addresses, const uint64_t *mem_sizes) {
     int i, j, k, myrank;
     char *buf_ptr, *tmp_ptr;
 
@@ -570,7 +570,6 @@ static void ADIOI_BV_TAM_post_read(ADIO_File fd, const char* buf, const int coun
             }
             buf_ptr += fd->bv_meta_data[2 * i + 1];
         }
-        ADIOI_Free(new_types);
     }
 
     if (j) {
@@ -777,7 +776,7 @@ int ADIOI_BV_StridedListIO(ADIO_File fd, void *buf, int count,
         /* Run list I/O operation */
         if (rw_type == READ_OP) {
 /*
-            ADIOI_BV_TAM_pre_read(buf_ol_count, buf_len_arr, file_ol_count, file_off_arr, file_len_arr, &local_file_offset, &local_offset_length, &number_of_requests);
+            ADIOI_BV_TAM_pre_read(fd, buf_ol_count, buf_len_arr, file_ol_count, file_off_arr, file_len_arr, &local_file_offset, &local_offset_length, &number_of_requests);
 */
             response =
                 bv_read(fd->fs_ptr, fd->filename, buf_ol_count, (const char **) buf_off_arr,
@@ -793,7 +792,7 @@ int ADIOI_BV_StridedListIO(ADIO_File fd, void *buf, int count,
 */
             if (fd->is_local_aggregator) {
                 response =
-                    bv_write(fd->fs_ptr, fd->filename, 1, &(fd->local_buf),
+                    bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &(fd->local_buf),
                              &local_data_size, number_of_requests, local_file_offset, local_offset_length);
             }
         }
