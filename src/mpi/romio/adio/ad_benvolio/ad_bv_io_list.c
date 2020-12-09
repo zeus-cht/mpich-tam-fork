@@ -775,10 +775,11 @@ int ADIOI_BV_StridedListIO(ADIO_File fd, void *buf, int count,
 
         /* Run list I/O operation */
         if (rw_type == READ_OP) {
+/*
             response =
                 bv_read(fd->fs_ptr, fd->filename, buf_ol_count, (const char **) buf_off_arr,
                             buf_len_arr, file_ol_count, file_off_arr, file_len_arr);
-/*
+*/
             ADIOI_BV_TAM_pre_read(fd, buf_ol_count, buf_len_arr, file_ol_count, file_off_arr, file_len_arr, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
             if (fd->is_local_aggregator) {
                 response =
@@ -786,7 +787,7 @@ int ADIOI_BV_StridedListIO(ADIO_File fd, void *buf, int count,
                                 &local_data_size, number_of_requests, local_file_offset, local_offset_length);
             }
             ADIOI_BV_TAM_post_read(fd, buf, count, datatype, buf_ol_count, (const char **) buf_off_arr, buf_len_arr);
-*/
+
 #if 0
             char **mem_buf = (char **) ADIOI_Malloc( (buf_ol_count + 1) * sizeof(char*) );
             uint64_t *mem_size2 = (uint64_t *) ADIOI_Malloc( (buf_ol_count + 1) * sizeof(uint64_t) );
