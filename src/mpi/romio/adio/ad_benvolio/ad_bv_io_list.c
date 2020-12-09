@@ -776,7 +776,7 @@ int ADIOI_BV_StridedListIO(ADIO_File fd, void *buf, int count,
         /* Run list I/O operation */
         if (rw_type == READ_OP) {
 
-            ADIOI_BV_TAM_pre_read(fd, buf_ol_count, buf_len_arr, file_ol_count, file_off_arr, file_len_arr, &local_file_offset, &local_offset_length, &number_of_requests);
+            ADIOI_BV_TAM_pre_read(fd, buf_ol_count, buf_len_arr, file_ol_count, file_off_arr, file_len_arr, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
 /*
             response =
                 bv_read(fd->fs_ptr, fd->filename, buf_ol_count, (const char **) buf_off_arr,
