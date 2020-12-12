@@ -12,5 +12,6 @@ void ADIOI_BV_Close(ADIO_File fd, int *error_code)
         bv_statistics(client_info, !rank);
     if (!rank)
         bv_flush(client_info, fd->filename);
+    MPI_Barrier(fd->comm);
     *error_code = MPI_SUCCESS;
 }
