@@ -303,7 +303,7 @@ void ADIOI_BV_TAM_write(ADIO_File fd, const int64_t mem_count, const char **mem_
     if (fd->is_local_aggregator) {
         for ( i = 0; i < fd->nprocs_aggregator; ++i ) {
             if ( fd->aggregator_local_ranks[i] != myrank ){
-                //MPI_Irecv(fd->bv_meta_data + 2 * i, 2, MPI_UINT64_T, fd->aggregator_local_ranks[i], fd->aggregator_local_ranks[i] + myrank, fd->comm, &req[j++]);
+                MPI_Irecv(fd->bv_meta_data + 2 * i, 2, MPI_UINT64_T, fd->aggregator_local_ranks[i], fd->aggregator_local_ranks[i] + myrank, fd->comm, &req[j++]);
             } else {
                 fd->bv_meta_data[2 * i] = bv_meta_data[0];
                 fd->bv_meta_data[2 * i + 1] = bv_meta_data[1];
@@ -312,7 +312,7 @@ void ADIOI_BV_TAM_write(ADIO_File fd, const int64_t mem_count, const char **mem_
     }
     /* Send message size to local aggregators*/
     if ( fd->my_local_aggregator != myrank ){
-        //MPI_Issend(bv_meta_data, 2, MPI_UINT64_T, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
+        MPI_Issend(bv_meta_data, 2, MPI_UINT64_T, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
     }
     if (j) {
 #ifdef MPI_STATUSES_IGNORE
