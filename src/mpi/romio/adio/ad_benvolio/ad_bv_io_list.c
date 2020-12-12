@@ -547,6 +547,7 @@ static void ADIOI_BV_TAM_post_read(ADIO_File fd, const int64_t mem_count, const 
     char *buf_ptr, *tmp_ptr;
     MPI_Count *array_of_blocklengths_64 = (MPI_Count *) ADIOI_Malloc( (mem_count + 1) * sizeof(MPI_Count) );
     MPI_Aint *array_of_displacements = (MPI_Aint *) ADIOI_Malloc( (mem_count + 1) * sizeof(MPI_Aint) );
+    MPI_Datatype new_type;
 
     MPI_Request *req = fd->req;
     MPI_Status *sts = fd->sts;
