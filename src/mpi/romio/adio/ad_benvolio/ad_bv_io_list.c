@@ -321,6 +321,7 @@ void ADIOI_BV_TAM_write(ADIO_File fd, const int64_t mem_count, const char **mem_
         MPI_Waitall(j, req, sts);
 #endif
     }
+    return;
     j = 0;
     if (fd->is_local_aggregator) {
         local_data_size = 0;
