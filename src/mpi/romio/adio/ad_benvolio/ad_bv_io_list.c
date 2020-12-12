@@ -274,7 +274,7 @@ static void print_buf_file_ol_pairs(char *buf_off_arr[],
 }
 #endif
 
-static void ADIOI_BV_TAM_write(ADIO_File fd, const int64_t mem_count, const char **mem_addresses, const uint64_t *mem_sizes, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests, int64_t *total_mem_size) {
+void ADIOI_BV_TAM_write(ADIO_File fd, const int64_t mem_count, const char **mem_addresses, const uint64_t *mem_sizes, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests, int64_t *total_mem_size) {
     int i, j, k, myrank;
     uint64_t total_memory = 0;
     /* First one is the total number of file offsets to be accessed, the second one is the total memory size. */
@@ -423,7 +423,7 @@ static void ADIOI_BV_TAM_write(ADIO_File fd, const int64_t mem_count, const char
     ADIOI_Free(array_of_displacements);
 }
 
-static void ADIOI_BV_TAM_pre_read(ADIO_File fd, const int64_t mem_count, const uint64_t *mem_sizes, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests, int64_t *total_mem_size) {
+void ADIOI_BV_TAM_pre_read(ADIO_File fd, const int64_t mem_count, const uint64_t *mem_sizes, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests, int64_t *total_mem_size) {
     int i, j, k, myrank;
     uint64_t total_memory = 0;
     /* First one is the total number of file offsets to be accessed, the second one is the total memory size. */
@@ -542,7 +542,7 @@ static void ADIOI_BV_TAM_pre_read(ADIO_File fd, const int64_t mem_count, const u
     }
 }
 
-static void ADIOI_BV_TAM_post_read(ADIO_File fd, const int64_t mem_count, const char **mem_addresses, const uint64_t *mem_sizes) {
+void ADIOI_BV_TAM_post_read(ADIO_File fd, const int64_t mem_count, const char **mem_addresses, const uint64_t *mem_sizes) {
     int i, j, k, myrank;
     char *buf_ptr, *tmp_ptr;
     MPI_Count *array_of_blocklengths_64 = (MPI_Count *) ADIOI_Malloc( (mem_count + 1) * sizeof(MPI_Count) );

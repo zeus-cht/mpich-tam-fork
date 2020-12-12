@@ -13,6 +13,12 @@
 
 #include "ad_bv_common.h"
 
+void ADIOI_BV_TAM_write(ADIO_File fd, const int64_t mem_count, const char **mem_addresses, const uint64_t *mem_sizes, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests, int64_t *total_mem_size);
+
+void ADIOI_BV_TAM_pre_read(ADIO_File fd, const int64_t mem_count, const uint64_t *mem_sizes, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests, int64_t *total_mem_size);
+
+void ADIOI_BV_TAM_post_read(ADIO_File fd, const int64_t mem_count, const char **mem_addresses, const uint64_t *mem_sizes);
+
 void ADIOI_BV_OldStridedListIO(ADIO_File fd, void *buf, int count,
                                    MPI_Datatype datatype, int file_ptr_type,
                                    ADIO_Offset offset, ADIO_Status * status, int *error_code,
@@ -54,6 +60,11 @@ void ADIOI_BV_OldStridedListIO(ADIO_File fd, void *buf, int count,
     int start_k, start_j, new_file_write, new_buffer_write;
     MPI_Offset total_bytes_written = 0;
     static char myname[] = "ADIOI_BV_WRITESTRIDED";
+
+    /* parameters for TAM */
+    off_t *local_file_offset;
+    uint64_t *local_offset_length;
+    int64_t number_of_requests, local_data_size;
 
 #define MAX_ARRAY_SIZE 1000
 
@@ -161,10 +172,18 @@ void ADIOI_BV_OldStridedListIO(ADIO_File fd, void *buf, int count,
                                         (const char **) mem_offsets, mem_lengths, 1, &file_offset,
                                         &file_length);
                     } else
+                        ADIOI_BV_TAM_write(fd, mem_list_count, mem_offsets, mem_lengths, 1, &file_offset, &file_length, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
+                        if (fd->is_local_aggregator) {
+                            response =
+                                bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &(fd->local_buf),
+                                     &local_data_size, number_of_requests, local_file_offset, local_offset_length);
+                        }
+/*
                         response =
                             bv_write(fd->fs_ptr, fd->filename, mem_list_count,
                                          (const char **) mem_offsets, mem_lengths, 1, &file_offset,
                                          &file_length);
+*/
                     if (response == -1) {
                         fprintf(stderr, "ADIOI_BV_StridedListIO: Warning - bv_"
                                 "read/write completed %lld bytes.\n", (long long) response);
@@ -349,9 +368,17 @@ void ADIOI_BV_OldStridedListIO(ADIO_File fd, void *buf, int count,
                     bv_read(fd->fs_ptr, fd->filename, 1, (const char **) &mem_offset,
                                 &contig_mem_length, file_list_count, file_offsets, file_lengths);
             } else {
+                ADIOI_BV_TAM_write(fd, 1, (const char **) &mem_offset, &contig_mem_length, file_list_count, file_offsets, file_lengths, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
+                if (fd->is_local_aggregator) {
+                    response =
+                        bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &(fd->local_buf),
+                                 &local_data_size, number_of_requests, local_file_offset, local_offset_length);
+                }
+/*
                 response =
                     bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &mem_offset,
                                  &contig_mem_length, file_list_count, file_offsets, file_lengths);
+*/
             }
 
             if (response == -1) {
@@ -399,9 +426,17 @@ void ADIOI_BV_OldStridedListIO(ADIO_File fd, void *buf, int count,
                     bv_read(fd->fs_ptr, fd->filename, 1, (const char **) &mem_offset,
                                 &contig_mem_length, file_list_count, file_offsets, file_lengths);
             } else {
+                ADIOI_BV_TAM_write(fd, 1, (const char **) &mem_offset, &contig_mem_length, file_list_count, file_offsets, file_lengths, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
+                if (fd->is_local_aggregator) {
+                    response =
+                        bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &(fd->local_buf),
+                                 &local_data_size, number_of_requests, local_file_offset, local_offset_length);
+                }
+/*
                 response =
                     bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &mem_offset,
                                  &contig_mem_length, file_list_count, file_offsets, file_lengths);
+*/
             }
             if (response == -1) {
                 /* --BEGIN ERROR HANDLING-- */
@@ -747,10 +782,20 @@ void ADIOI_BV_OldStridedListIO(ADIO_File fd, void *buf, int count,
                                 (const char **) mem_offsets, mem_lengths, file_list_count,
                                 file_offsets, file_lengths);
             } else {
+                ADIOI_BV_TAM_write(fd, mem_list_count, (const char **) mem_offsets, mem_lengths, file_list_count, file_offsets, file_lengths, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
+                if (fd->is_local_aggregator) {
+                    response =
+                        bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &(fd->local_buf),
+                                 &local_data_size, number_of_requests, local_file_offset, local_offset_length);
+                }
+
+/*
                 response =
                     bv_write(fd->fs_ptr, fd->filename, mem_list_count,
                                  (const char **) mem_offsets, mem_lengths, file_list_count,
                                  file_offsets, file_lengths);
+*/
+                
             }
             /* --BEGIN ERROR HANDLING-- */
             if (response == -1) {
