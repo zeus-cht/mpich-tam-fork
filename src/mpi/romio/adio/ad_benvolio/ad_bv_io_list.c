@@ -286,8 +286,8 @@ static void ADIOI_BV_TAM_write(ADIO_File fd, const char* buf, const int count, M
     char *buf_ptr, *tmp_ptr;
     MPI_Datatype new_type, *new_types;
     int array_of_blocklengths[3];
-    MPI_Count array_of_blocklengths_64 = (MPI_Count *) ADIOI_Malloc( (mem_count + 2) * sizeof(MPI_Count) );
-    MPI_Aint array_of_displacements = (MPI_Aint *) ADIOI_Malloc( (mem_count + 3) * sizeof(MPI_Aint) );
+    MPI_Count *array_of_blocklengths_64 = (MPI_Count *) ADIOI_Malloc( (mem_count + 2) * sizeof(MPI_Count) );
+    MPI_Aint *array_of_displacements = (MPI_Aint *) ADIOI_Malloc( (mem_count + 3) * sizeof(MPI_Aint) );
 
     MPI_Request *req = fd->req;
     MPI_Status *sts = fd->sts;
@@ -545,8 +545,8 @@ static void ADIOI_BV_TAM_pre_read(ADIO_File fd, const int64_t mem_count, const u
 static void ADIOI_BV_TAM_post_read(ADIO_File fd, char* buf, const int count, MPI_Datatype datatype, const int64_t mem_count, const char **mem_addresses, const uint64_t *mem_sizes) {
     int i, j, k, myrank;
     char *buf_ptr, *tmp_ptr;
-    MPI_Count array_of_blocklengths_64 = (MPI_Count *) ADIOI_Malloc( (mem_count + 1) * sizeof(MPI_Count) );
-    MPI_Aint array_of_displacements = (MPI_Aint *) ADIOI_Malloc( (mem_count + 1) * sizeof(MPI_Aint) );
+    MPI_Count *array_of_blocklengths_64 = (MPI_Count *) ADIOI_Malloc( (mem_count + 1) * sizeof(MPI_Count) );
+    MPI_Aint *array_of_displacements = (MPI_Aint *) ADIOI_Malloc( (mem_count + 1) * sizeof(MPI_Aint) );
 
     MPI_Request *req = fd->req;
     MPI_Status *sts = fd->sts;
