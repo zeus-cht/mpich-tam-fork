@@ -172,7 +172,7 @@ void ADIOI_BV_OldStridedListIO(ADIO_File fd, void *buf, int count,
                                         (const char **) mem_offsets, mem_lengths, 1, &file_offset,
                                         &file_length);
                     } else
-                        ADIOI_BV_TAM_write(fd, mem_list_count, mem_offsets, mem_lengths, 1, &file_offset, &file_length, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
+                        ADIOI_BV_TAM_write(fd, mem_list_count, (const char **) mem_offsets, mem_lengths, 1, &file_offset, &file_length, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
                         if (fd->is_local_aggregator) {
                             response =
                                 bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &(fd->local_buf),
