@@ -562,7 +562,7 @@ static void ADIOI_BV_TAM_post_read(ADIO_File fd, const int64_t mem_count, const 
                                      array_of_blocklengths_64,
                                      array_of_displacements,
                                      MPI_BYTE, &new_type);
-        MPI_Irecv(buf, count, datatype, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
+        MPI_Irecv(MPI_BOTTOM, 1, new_type, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
     }
     if (fd->is_local_aggregator) {
         buf_ptr = fd->local_buf;
