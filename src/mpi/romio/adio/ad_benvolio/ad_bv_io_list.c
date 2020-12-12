@@ -411,7 +411,7 @@ void ADIOI_BV_TAM_write(ADIO_File fd, const int64_t mem_count, const char **mem_
 
         MPI_Type_commit(&new_type);
         MPI_Isend(MPI_BOTTOM, 1, new_type, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
-        MPI_Type_free(new_type);
+        MPI_Type_free(&new_type);
     }
     if (j) {
 #ifdef MPI_STATUSES_IGNORE
@@ -532,6 +532,7 @@ void ADIOI_BV_TAM_pre_read(ADIO_File fd, const int64_t mem_count, const uint64_t
 
         MPI_Type_commit(&new_type);
         MPI_Isend(MPI_BOTTOM, 1, new_type, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
+        MPI_Type_free(&new_type);
     }
 
     if (j) {
