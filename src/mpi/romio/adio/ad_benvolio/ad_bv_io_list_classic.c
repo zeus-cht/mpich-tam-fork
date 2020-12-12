@@ -174,19 +174,19 @@ void ADIOI_BV_OldStridedListIO(ADIO_File fd, void *buf, int count,
                     } else
 
                         ADIOI_BV_TAM_write(fd, mem_list_count, (const char **) mem_offsets, mem_lengths, 1, &file_offset, &file_length, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
-
+/*
                         if (fd->is_local_aggregator) {
                             response =
                                 bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &(fd->local_buf),
                                      &local_data_size, number_of_requests, local_file_offset, local_offset_length);
                         }
+*/
 
-/*
                         response =
                             bv_write(fd->fs_ptr, fd->filename, mem_list_count,
                                          (const char **) mem_offsets, mem_lengths, 1, &file_offset,
                                          &file_length);
-*/
+
                     if (response == -1) {
                         fprintf(stderr, "ADIOI_BV_StridedListIO: Warning - bv_"
                                 "read/write completed %lld bytes.\n", (long long) response);
@@ -373,18 +373,18 @@ void ADIOI_BV_OldStridedListIO(ADIO_File fd, void *buf, int count,
             } else {
 
                 ADIOI_BV_TAM_write(fd, 1, (const char **) &mem_offset, &contig_mem_length, file_list_count, file_offsets, file_lengths, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
-
+/*
                 if (fd->is_local_aggregator) {
                     response =
                         bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &(fd->local_buf),
                                  &local_data_size, number_of_requests, local_file_offset, local_offset_length);
                 }
+*/
 
-/*
                 response =
                     bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &mem_offset,
                                  &contig_mem_length, file_list_count, file_offsets, file_lengths);
-*/
+
             }
 
             if (response == -1) {
@@ -434,18 +434,18 @@ void ADIOI_BV_OldStridedListIO(ADIO_File fd, void *buf, int count,
             } else {
 
                 ADIOI_BV_TAM_write(fd, 1, (const char **) &mem_offset, &contig_mem_length, file_list_count, file_offsets, file_lengths, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
-
+/*
                 if (fd->is_local_aggregator) {
                     response =
                         bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &(fd->local_buf),
                                  &local_data_size, number_of_requests, local_file_offset, local_offset_length);
                 }
+*/
 
-/*
                 response =
                     bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &mem_offset,
                                  &contig_mem_length, file_list_count, file_offsets, file_lengths);
-*/
+
             }
             if (response == -1) {
                 /* --BEGIN ERROR HANDLING-- */
@@ -793,19 +793,19 @@ void ADIOI_BV_OldStridedListIO(ADIO_File fd, void *buf, int count,
             } else {
 
                 ADIOI_BV_TAM_write(fd, mem_list_count, (const char **) mem_offsets, mem_lengths, file_list_count, file_offsets, file_lengths, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
-
+/*
                 if (fd->is_local_aggregator) {
                     response =
                         bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &(fd->local_buf),
                                  &local_data_size, number_of_requests, local_file_offset, local_offset_length);
                 }
+*/
 
-/*
                 response =
                     bv_write(fd->fs_ptr, fd->filename, mem_list_count,
                                  (const char **) mem_offsets, mem_lengths, file_list_count,
                                  file_offsets, file_lengths);
-*/
+
                 
             }
             /* --BEGIN ERROR HANDLING-- */
