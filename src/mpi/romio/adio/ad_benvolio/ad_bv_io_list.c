@@ -298,7 +298,7 @@ void ADIOI_BV_TAM_write(ADIO_File fd, const int64_t mem_count, const char **mem_
     for ( i = 0; i < mem_count; ++i ) {
         bv_meta_data[1] += mem_sizes[i];
     }
-
+    return;
     j = 0;
     if (fd->is_local_aggregator) {
         for ( i = 0; i < fd->nprocs_aggregator; ++i ) {
@@ -321,7 +321,7 @@ void ADIOI_BV_TAM_write(ADIO_File fd, const int64_t mem_count, const char **mem_
         MPI_Waitall(j, req, sts);
 #endif
     }
-    return;
+
     j = 0;
     if (fd->is_local_aggregator) {
         local_data_size = 0;
