@@ -132,7 +132,7 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     MPI_Type_size_x(datatype, &buftype_size);
 
     MPI_Count contig_buf_size;
-    char *contig_buf;
+    char *contig_buf, *tmp_ptr;
     int position = 0;
     MPI_Offset response = 0;
     MPI_Request req[2];
@@ -180,7 +180,8 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
         if (!myrank) {
             printf("rank 0 before bv_write, data size = %llu, contig access account = %d, round = %d\n", (long long unsigned)temp, request_processed, i);
         }
-        response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &(contig_buf + mem_processed), (uint64_t*) (&temp), (int64_t) request_processed, bv_file_offset + i * BV_MAX_REQUEST, bv_file_sizes + i * BV_MAX_REQUEST);
+        tmp_ptr = contig_buf + mem_processed;
+        response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &(tmp_ptr), (uint64_t*) (&temp), (int64_t) request_processed, bv_file_offset + i * BV_MAX_REQUEST, bv_file_sizes + i * BV_MAX_REQUEST);
         mem_processed += temp;
     }
     //response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &contig_buf, (uint64_t*) (&contig_buf_size), (int64_t) contig_access_count, bv_file_offset, bv_file_sizes);
