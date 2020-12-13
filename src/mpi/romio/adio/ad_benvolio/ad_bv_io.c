@@ -129,13 +129,14 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     MPI_Count buftype_size;
     MPI_Type_size_x(datatype, &buftype_size);
 
-    MPI_Count contig_buf_size = buftype_size * count;
+    MPI_Count contig_buf_size;
     char *contig_buf;
     int position = 0;
     MPI_Offset response = 0;
     MPI_Request req[2];
     MPI_Status sts[2];
     int myrank;
+    long long unsigned total_file_size=0;
 
     MPI_Comm_rank(fd->comm, &myrank);
 
@@ -143,6 +144,7 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
                           &offset_list, &len_list, &start_offset,
                           &end_offset, &contig_access_count);
 
+    contig_buf_size = buftype_size * count;
     contig_buf = (char *) ADIOI_Malloc( sizeof(char) * contig_buf_size );
 
     MPI_Irecv(contig_buf, contig_buf_size, MPI_BYTE, myrank, myrank, fd->comm, &req[0]);
@@ -155,16 +157,20 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     for ( i = 0; i < contig_access_count; ++i ) {
         bv_file_offset[i] = (off_t) offset_list[i];
         bv_file_sizes[i] = (uint64_t) len_list[i];
+        total_file_size += bv_file_sizes[i];
     }
-    response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &contig_buf, (uint64_t*) (&contig_buf_size), (int64_t) contig_access_count, bv_file_offset, bv_file_sizes);
+    if (total_file_size != contig_buf_size) {
+        printf("total file size = %llu, contig_buf_size = %llu\n", total_file_size, (long long unsigned) contig_buf_size);
+    } 
+    //response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &contig_buf, (uint64_t*) (&contig_buf_size), (int64_t) contig_access_count, bv_file_offset, bv_file_sizes);
 
     ADIOI_Free(contig_buf);
     ADIOI_Free(offset_list);
     //ADIOI_Free(len_list);
     ADIOI_Free(bv_file_offset);
     ADIOI_Free(bv_file_sizes);
-/*
+
     ADIOI_BV_OldStridedListIO(fd, (void *) buf, count, datatype, file_ptr_type, offset, status,
                                   error_code, WRITE_OP);
-*/
+
 }
