@@ -518,14 +518,14 @@ void ADIOI_BV_WriteStridedColl(ADIO_File fd,
                           &offset_list, &len_list, &start_offset,
                           &end_offset, &contig_access_count);
 
-    contig_buf_size = buftype_size * count;
-    contig_buf = (char *) ADIOI_Malloc( sizeof(char) * contig_buf_size );
+    //contig_buf_size = buftype_size * count;
+    //contig_buf = (char *) ADIOI_Malloc( sizeof(char) * contig_buf_size );
 /*
     MPI_Irecv(contig_buf, contig_buf_size, MPI_BYTE, myrank, myrank, fd->comm, &req[0]);
     MPI_Isend(buf, count, datatype, myrank, myrank, fd->comm, &req[1]);
     MPI_Waitall(2, req, sts);
 */
-    MPI_Pack(buf, count, datatype, contig_buf, contig_buf_size, &position, fd->comm);
+    //MPI_Pack(buf, count, datatype, contig_buf, contig_buf_size, &position, fd->comm);
  
     off_t *bv_file_offset = (off_t *) ADIOI_Malloc( sizeof(off_t) * contig_access_count );
     uint64_t *bv_file_sizes = (uint64_t *) ADIOI_Malloc( sizeof(uint64_t) * contig_access_count );
@@ -536,7 +536,7 @@ void ADIOI_BV_WriteStridedColl(ADIO_File fd,
     //printf("rank 0 before bv_write, data size = %llu, contig access account = %d\n", (long long unsigned)contig_buf_size, contig_access_count);
     ADIOI_BV_TAM_write(fd, buf, count, datatype, (int64_t) contig_access_count, bv_file_offset, bv_file_sizes, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
 
-    ADIOI_Free(contig_buf);
+    //ADIOI_Free(contig_buf);
     ADIOI_Free(offset_list);
     //ADIOI_Free(len_list);
     ADIOI_Free(bv_file_offset);
