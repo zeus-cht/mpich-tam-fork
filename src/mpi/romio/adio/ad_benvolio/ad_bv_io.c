@@ -518,11 +518,11 @@ void ADIOI_BV_WriteStridedColl(ADIO_File fd,
 
     contig_buf_size = buftype_size * count;
     contig_buf = (char *) ADIOI_Malloc( sizeof(char) * contig_buf_size );
-/*
+
     MPI_Irecv(contig_buf, contig_buf_size, MPI_BYTE, myrank, myrank, fd->comm, &req[0]);
     MPI_Isend(buf, count, datatype, myrank, myrank, fd->comm, &req[1]);
     MPI_Waitall(2, req, sts);
-*/
+
     //MPI_Pack(buf, count, datatype, contig_buf, contig_buf_size, &position, fd->comm);
  
     off_t *bv_file_offset = (off_t *) ADIOI_Malloc( sizeof(off_t) * contig_access_count );
