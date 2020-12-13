@@ -216,7 +216,7 @@ void ADIOI_BV_WriteStridedColl(ADIO_File fd,
         mem_processed = 0;
         for ( j = 0; j < request_processed; ++j ) {
             mem_processed += bv_file_sizes[i * BV_MAX_REQUEST + j];
-            printf("%llu\n", (long long unsigned) bv_file_sizes[i * BV_MAX_REQUEST + j]);
+            //printf("%llu\n", (long long unsigned) bv_file_sizes[i * BV_MAX_REQUEST + j]);
         }
 
         if (!myrank) {
