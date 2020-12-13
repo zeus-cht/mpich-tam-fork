@@ -18,8 +18,6 @@
 #define BV_READ 0
 #define BV_WRITE 1
 
-void ADIOI_BV_TAM_write(ADIO_File fd, const int64_t mem_count, const char **mem_addresses, const uint64_t *mem_sizes, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests, int64_t *total_mem_size);
-
 static void BV_IOContig(ADIO_File fd,
                             void *buf,
                             int count,
@@ -127,6 +125,353 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
 {
     ADIOI_BV_OldStridedListIO(fd, (void *) buf, count, datatype, file_ptr_type, offset, status,
                                   error_code, WRITE_OP);
+}
+
+
+void ADIOI_BV_TAM_write(ADIO_File fd,const void *buf, int count, MPI_Datatype datatype, const int64_t mem_count, const char **mem_addresses, const uint64_t *mem_sizes, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests, int64_t *total_mem_size) {
+    int i, j, k, myrank;
+    uint64_t total_memory = 0;
+    /* First one is the total number of file offsets to be accessed, the second one is the total memory size. */
+    uint64_t bv_meta_data[2];
+    uint64_t local_data_size, local_contig_req;
+    size_t temp;
+    off_t *file_offset, *off_ptr;
+    uint64_t *offset_length, *uint64_ptr;
+    char *buf_ptr, *tmp_ptr;
+    MPI_Datatype new_type, *new_types, new_type2[3];
+    int array_of_blocklengths[3];
+    MPI_Aint array_of_displacements[3];
+    //MPI_Count *array_of_blocklengths_64 = (MPI_Count *) ADIOI_Malloc( (mem_count + 2) * sizeof(MPI_Count) );
+    //MPI_Aint *array_of_displacements = (MPI_Aint *) ADIOI_Malloc( (mem_count + 3) * sizeof(MPI_Aint) );
+
+    MPI_Request *req = fd->req;
+    MPI_Status *sts = fd->sts;
+    MPI_Comm_rank(fd->comm, &myrank);
+    /* First one is the number of I/O requests. The second one is the size of data (total I/O accesses size). */
+    bv_meta_data[0] = (uint64_t) file_count;
+    bv_meta_data[1] = 0;
+    for ( i = 0; i < mem_count; ++i ) {
+        bv_meta_data[1] += mem_sizes[i];
+    }
+
+    j = 0;
+    if (fd->is_local_aggregator) {
+        for ( i = 0; i < fd->nprocs_aggregator; ++i ) {
+            if ( fd->aggregator_local_ranks[i] != myrank ){
+                MPI_Irecv(&(fd->bv_meta_data[2 * i]), 2, MPI_UINT64_T, fd->aggregator_local_ranks[i], fd->aggregator_local_ranks[i] + myrank, fd->comm, &req[j++]);
+                //printf("post receive at rank %d from %d\n", myrank, fd->aggregator_local_ranks[i]);
+            } else {
+                fd->bv_meta_data[2 * i] = bv_meta_data[0];
+                fd->bv_meta_data[2 * i + 1] = bv_meta_data[1];
+            }
+        }
+    }
+    /* Send message size to local aggregators*/
+    if ( fd->my_local_aggregator != myrank ){
+        //printf("post send at rank %d to %d\n", myrank, fd->my_local_aggregator);
+        MPI_Issend(bv_meta_data, 2, MPI_UINT64_T, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
+    }
+    if (j) {
+#ifdef MPI_STATUSES_IGNORE
+        MPI_Waitall(j, req, MPI_STATUSES_IGNORE);
+#else
+        MPI_Waitall(j, req, sts);
+#endif
+    }
+    //printf("rank %d-----------------\n", myrank);
+    j = 0;
+    if (fd->is_local_aggregator) {
+        local_data_size = 0;
+        local_contig_req = 0;
+        for ( i = 0; i < fd->nprocs_aggregator; ++i ) {
+            local_contig_req += fd->bv_meta_data[2 * i];
+            local_data_size += fd->bv_meta_data[2 * i + 1];
+        }
+        /* One buffer for both data and metadata
+         * Data buffer comes first, then offsets, finally lengths of the offsets */
+        temp = (size_t) ( local_data_size * sizeof(char) + local_contig_req * (sizeof(uint64_t) + sizeof(off_t)) );
+        if ( fd->local_buf_size < temp ){
+            if (fd->local_buf_size) {
+                ADIOI_Free(fd->local_buf);
+            }
+            fd->local_buf_size = temp;
+            fd->local_buf = (char *) ADIOI_Malloc( temp );
+        }
+        file_offset = (off_t*) (fd->local_buf + local_data_size);
+        offset_length = (uint64_t*) (file_offset + local_contig_req);
+
+        *file_offset_ptr = file_offset;
+        *offset_length_ptr = offset_length;
+        *number_of_requests = (int64_t) local_contig_req;
+        *total_mem_size = (uint64_t) local_data_size;
+
+        buf_ptr = fd->local_buf;
+        off_ptr = file_offset;
+        uint64_ptr = offset_length;
+        new_types = (MPI_Datatype *) ADIOI_Malloc((fd->nprocs_aggregator+1) * sizeof(MPI_Datatype));
+        for ( i = 0; i < fd->nprocs_aggregator; i++) {
+            if ( myrank != fd->aggregator_local_ranks[i] ) {
+                array_of_blocklengths[0] = sizeof(char) * fd->bv_meta_data[2 * i + 1];
+                array_of_blocklengths[1] = sizeof(off_t) * fd->bv_meta_data[2 * i];
+                array_of_blocklengths[2] = sizeof(uint64_t) * fd->bv_meta_data[2 * i];
+                array_of_displacements[0] = (MPI_Aint) buf_ptr;
+                array_of_displacements[1] = (MPI_Aint) off_ptr;
+                array_of_displacements[2] = (MPI_Aint) uint64_ptr;
+                MPI_Type_create_hindexed(3, array_of_blocklengths, array_of_displacements, MPI_BYTE, new_types + i);
+                MPI_Type_commit(new_types + i);
+
+                MPI_Irecv(MPI_BOTTOM, 1, 
+                          new_types[i], fd->aggregator_local_ranks[i], fd->aggregator_local_ranks[i] + myrank, fd->comm, &req[j++]);
+                MPI_Type_free(new_types+i);
+            } else {
+                tmp_ptr = buf_ptr;
+                for ( k = 0; k < mem_count; ++k ) {
+                    memcpy((void*)tmp_ptr, (void*)mem_addresses[k], sizeof(char) * mem_sizes[k]);
+                    tmp_ptr += mem_sizes[k];
+                }
+                memcpy(off_ptr, file_starts, fd->bv_meta_data[2 * i] * sizeof(off_t));
+                memcpy(uint64_ptr, file_sizes, fd->bv_meta_data[2 * i] * sizeof(off_t));
+            }
+            buf_ptr += fd->bv_meta_data[2 * i + 1];
+            off_ptr += fd->bv_meta_data[2 * i];
+            uint64_ptr += fd->bv_meta_data[2 * i];
+        }
+        ADIOI_Free(new_types);
+    }
+    if ( fd->my_local_aggregator != myrank ){
+        /* file offsets can have larger than int number of elements. We need to use an extension of native h_indexed_x.
+         * Warning: I do not believe file_count can be larger than 32 bit integer because it is parsed from MPI_Datatype. List I/O has some restrictions on this size. Hence I will ignore this 64 bit problem here.*/
+/*
+        array_of_blocklengths_64[0] = (MPI_Count) sizeof(off_t) * file_count;
+        array_of_blocklengths_64[1] = (MPI_Count) sizeof(uint64_t) * file_count;
+        array_of_displacements[0] = (MPI_Aint) file_starts;
+        array_of_displacements[1] = (MPI_Aint) file_sizes;
+
+        ADIOI_Type_create_hindexed_x(2,
+                                     array_of_blocklengths_64,
+                                     array_of_displacements,
+                                     MPI_BYTE, &new_type);
+        MPI_Type_commit(&new_type);
+*/
+        /* Data comes first, then offsets, finally lengths at the offsets*/
+
+/*
+        for ( i = 0; i < mem_count; ++i ) {
+            array_of_blocklengths_64[i] = (MPI_Count) mem_sizes[i];
+            array_of_displacements[i] = (MPI_Aint) mem_addresses[i];
+        }
+
+        array_of_blocklengths_64[mem_count] = (MPI_Count) sizeof(off_t) * file_count;
+        array_of_blocklengths_64[mem_count + 1] = (MPI_Count) sizeof(uint64_t) * file_count;
+        array_of_displacements[mem_count] = (MPI_Aint) file_starts;
+        array_of_displacements[mem_count + 1] = (MPI_Aint) file_sizes;
+        ADIOI_Type_create_hindexed_x(mem_count + 2,
+                                     array_of_blocklengths_64,
+                                     array_of_displacements,
+                                     MPI_BYTE, &new_type);
+*/
+
+        array_of_blocklengths[0] = count;
+        array_of_blocklengths[1] = sizeof(ADIO_Offset) * contig_access_count;
+        array_of_blocklengths[2] = sizeof(ADIO_Offset) * contig_access_count;
+        array_of_displacements[0] = (MPI_Aint) buf;
+        array_of_displacements[1] = (MPI_Aint) file_starts;
+        array_of_displacements[2] = (MPI_Aint) file_sizes;
+
+        new_types2[0] = datatype;
+        new_types2[1] = MPI_BYTE;
+        new_types2[2] = MPI_BYTE;
+        MPI_Type_struct(3,
+                       array_of_blocklengths,
+                       array_of_displacements,
+                       new_types2,
+                       &new_type);
+
+
+        MPI_Type_commit(&new_type);
+        MPI_Issend(MPI_BOTTOM, 1, new_type, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
+        MPI_Type_free(&new_type);
+    }
+    if (j) {
+#ifdef MPI_STATUSES_IGNORE
+        MPI_Waitall(j, req, MPI_STATUSES_IGNORE);
+#else
+        MPI_Waitall(j, req, sts);
+#endif
+    }
+    //ADIOI_Free(array_of_blocklengths_64);
+    //ADIOI_Free(array_of_displacements);
+}
+
+void ADIOI_BV_TAM_pre_read(ADIO_File fd, const int64_t mem_count, const uint64_t *mem_sizes, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests, int64_t *total_mem_size) {
+    int i, j, k, myrank;
+    uint64_t total_memory = 0;
+    /* First one is the total number of file offsets to be accessed, the second one is the total memory size. */
+    uint64_t bv_meta_data[2];
+    uint64_t local_data_size, local_contig_req;
+    size_t temp;
+    off_t *file_offset, *off_ptr;
+    uint64_t *offset_length, *uint64_ptr;
+    char *buf_ptr, *tmp_ptr;
+    MPI_Datatype new_types2[2];
+    MPI_Datatype new_type, new_type2, *new_types;
+    int array_of_blocklengths[2];
+    MPI_Count array_of_blocklengths_64[2];
+    MPI_Aint array_of_displacements[2];
+
+    MPI_Request *req = fd->req;
+    MPI_Status *sts = fd->sts;
+    MPI_Comm_rank(fd->comm, &myrank);
+    /* First one is the number of I/O requests. The second one is the size of data (total I/O accesses size). */
+    bv_meta_data[0] = (uint64_t) file_count;
+    bv_meta_data[1] = 0;
+    for ( i = 0; i < mem_count; ++i ) {
+        bv_meta_data[1] += mem_sizes[i];
+    }
+
+    j = 0;
+    if (fd->is_local_aggregator) {
+        for ( i = 0; i < fd->nprocs_aggregator; ++i ) {
+            if ( fd->aggregator_local_ranks[i] != myrank ){
+                MPI_Irecv(fd->bv_meta_data + 2 * i, 2, MPI_UINT64_T, fd->aggregator_local_ranks[i], fd->aggregator_local_ranks[i] + myrank, fd->comm, &req[j++]);
+            } else {
+                fd->bv_meta_data[2 * i] = bv_meta_data[0];
+                fd->bv_meta_data[2 * i + 1] = bv_meta_data[1];
+            }
+        }
+    }
+    /* Send message size to local aggregators*/
+    if ( fd->my_local_aggregator != myrank ){
+        MPI_Issend(bv_meta_data, 2, MPI_UINT64_T, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
+    }
+    if (j) {
+#ifdef MPI_STATUSES_IGNORE
+        MPI_Waitall(j, req, MPI_STATUSES_IGNORE);
+#else
+        MPI_Waitall(j, req, sts);
+#endif
+    }
+    j = 0;
+    if (fd->is_local_aggregator) {
+        local_data_size = 0;
+        local_contig_req = 0;
+        for ( i = 0; i < fd->nprocs_aggregator; ++i ) {
+            local_contig_req += fd->bv_meta_data[2 * i];
+            local_data_size += fd->bv_meta_data[2 * i + 1];
+        }
+        /* One buffer for both data and metadata
+         * Data buffer comes first, then offsets, finally lengths of the offsets */
+        temp = (size_t) ( local_data_size * sizeof(char) + local_contig_req * (sizeof(uint64_t) + sizeof(off_t)) );
+        if ( fd->local_buf_size < temp ){
+            if (fd->local_buf_size) {
+                ADIOI_Free(fd->local_buf);
+            }
+            fd->local_buf_size = temp;
+            fd->local_buf = (char *) ADIOI_Malloc( temp );
+        }
+        file_offset = (off_t*) (fd->local_buf + local_data_size);
+        offset_length = (uint64_t*) (file_offset + local_contig_req);
+
+        *file_offset_ptr = file_offset;
+        *offset_length_ptr = offset_length;
+        *number_of_requests = (int64_t) local_contig_req;
+        *total_mem_size = (uint64_t) local_data_size;
+
+        buf_ptr = fd->local_buf;
+        off_ptr = file_offset;
+        uint64_ptr = offset_length;
+        new_types = (MPI_Datatype *) ADIOI_Malloc((fd->nprocs_aggregator+1) * sizeof(MPI_Datatype));
+        for ( i = 0; i < fd->nprocs_aggregator; i++) {
+            if ( myrank != fd->aggregator_local_ranks[i] ) {
+                array_of_blocklengths[0] = sizeof(off_t) * fd->bv_meta_data[2 * i];
+                array_of_blocklengths[1] = sizeof(uint64_t) * fd->bv_meta_data[2 * i];
+                array_of_displacements[0] = (MPI_Aint) off_ptr;
+                array_of_displacements[1] = (MPI_Aint) uint64_ptr;
+                MPI_Type_create_hindexed(2, array_of_blocklengths, array_of_displacements, MPI_BYTE, new_types + i);
+                MPI_Type_commit(new_types + i);
+
+                MPI_Irecv(MPI_BOTTOM, 1, 
+                          new_types[i], fd->aggregator_local_ranks[i], fd->aggregator_local_ranks[i] + myrank, fd->comm, &req[j++]);
+                MPI_Type_free(new_types+i);
+            }
+            buf_ptr += fd->bv_meta_data[2 * i + 1];
+            off_ptr += fd->bv_meta_data[2 * i];
+            uint64_ptr += fd->bv_meta_data[2 * i];
+        }
+        ADIOI_Free(new_types);
+    }
+    if ( fd->my_local_aggregator != myrank ){
+        /* Data comes first, then offsets, finally lengths at the offsets*/
+        array_of_blocklengths[0] = (MPI_Count) sizeof(off_t) * file_count;
+        array_of_blocklengths[1] = (MPI_Count) sizeof(uint64_t) * file_count;
+        array_of_displacements[0] = (MPI_Aint) file_starts;
+        array_of_displacements[1] = (MPI_Aint) file_sizes;
+
+        MPI_Type_create_hindexed(2, array_of_blocklengths, array_of_displacements, MPI_BYTE, &new_type);
+
+        MPI_Type_commit(&new_type);
+        MPI_Isend(MPI_BOTTOM, 1, new_type, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
+        MPI_Type_free(&new_type);
+    }
+
+    if (j) {
+#ifdef MPI_STATUSES_IGNORE
+        MPI_Waitall(j, req, MPI_STATUSES_IGNORE);
+#else
+        MPI_Waitall(j, req, sts);
+#endif
+    }
+}
+
+void ADIOI_BV_TAM_post_read(ADIO_File fd, const int64_t mem_count, const char **mem_addresses, const uint64_t *mem_sizes) {
+    int i, j, k, myrank;
+    char *buf_ptr, *tmp_ptr;
+    MPI_Count *array_of_blocklengths_64 = (MPI_Count *) ADIOI_Malloc( (mem_count + 1) * sizeof(MPI_Count) );
+    MPI_Aint *array_of_displacements = (MPI_Aint *) ADIOI_Malloc( (mem_count + 1) * sizeof(MPI_Aint) );
+    MPI_Datatype new_type;
+
+    MPI_Request *req = fd->req;
+    MPI_Status *sts = fd->sts;
+    MPI_Comm_rank(fd->comm, &myrank);
+
+    j = 0;
+    if ( fd->my_local_aggregator != myrank ){
+        for ( i = 0; i < mem_count; ++i ) {
+            array_of_blocklengths_64[i] = (MPI_Count) mem_sizes[i];
+            array_of_displacements[i] = (MPI_Aint) mem_addresses[i];
+        }
+        ADIOI_Type_create_hindexed_x(mem_count,
+                                     array_of_blocklengths_64,
+                                     array_of_displacements,
+                                     MPI_BYTE, &new_type);
+        MPI_Irecv(MPI_BOTTOM, 1, new_type, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
+    }
+    if (fd->is_local_aggregator) {
+        buf_ptr = fd->local_buf;
+        for ( i = 0; i < fd->nprocs_aggregator; i++) {
+            if ( myrank != fd->aggregator_local_ranks[i] ) {
+                MPI_Issend(buf_ptr, fd->bv_meta_data[2 * i + 1], 
+                          MPI_BYTE, fd->aggregator_local_ranks[i], fd->aggregator_local_ranks[i] + myrank, fd->comm, &req[j++]);
+            } else {
+                tmp_ptr = buf_ptr;
+                for ( k = 0; k < mem_count; ++k ) {
+                    memcpy((void*)mem_addresses[k], (void*)tmp_ptr, sizeof(char) * mem_sizes[k]);
+                    tmp_ptr += mem_sizes[k];
+                }
+            }
+            buf_ptr += fd->bv_meta_data[2 * i + 1];
+        }
+    }
+
+    if (j) {
+#ifdef MPI_STATUSES_IGNORE
+        MPI_Waitall(j, req, MPI_STATUSES_IGNORE);
+#else
+        MPI_Waitall(j, req, sts);
+#endif
+    }
+    ADIOI_Free(array_of_blocklengths_64);
+    ADIOI_Free(array_of_displacements);
 }
 
 #define BV_MAX_REQUEST 4096
