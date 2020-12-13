@@ -304,7 +304,7 @@ void ADIOI_BV_TAM_write(ADIO_File fd, const int64_t mem_count, const char **mem_
         for ( i = 0; i < fd->nprocs_aggregator; ++i ) {
             if ( fd->aggregator_local_ranks[i] != myrank ){
                 MPI_Irecv(&(fd->bv_meta_data[2 * i]), 2, MPI_UINT64_T, fd->aggregator_local_ranks[i], fd->aggregator_local_ranks[i] + myrank, fd->comm, &req[j++]);
-                printf("post receive at rank %d from %d\n", myrank, fd->aggregator_local_ranks[i]);
+                //printf("post receive at rank %d from %d\n", myrank, fd->aggregator_local_ranks[i]);
             } else {
                 fd->bv_meta_data[2 * i] = bv_meta_data[0];
                 fd->bv_meta_data[2 * i + 1] = bv_meta_data[1];
@@ -313,7 +313,7 @@ void ADIOI_BV_TAM_write(ADIO_File fd, const int64_t mem_count, const char **mem_
     }
     /* Send message size to local aggregators*/
     if ( fd->my_local_aggregator != myrank ){
-        printf("post send at rank %d to %d\n", myrank, fd->my_local_aggregator);
+        //printf("post send at rank %d to %d\n", myrank, fd->my_local_aggregator);
         MPI_Issend(bv_meta_data, 2, MPI_UINT64_T, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
     }
     if (j) {
@@ -323,8 +323,7 @@ void ADIOI_BV_TAM_write(ADIO_File fd, const int64_t mem_count, const char **mem_
         MPI_Waitall(j, req, sts);
 #endif
     }
-    printf("rank %d-----------------\n", myrank);
-    return;
+    //printf("rank %d-----------------\n", myrank);
     j = 0;
     if (fd->is_local_aggregator) {
         local_data_size = 0;
