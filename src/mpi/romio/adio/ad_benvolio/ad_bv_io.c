@@ -178,7 +178,7 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
             mem_processed += len_list[i * BV_MAX_REQUEST + j];
         }
         if (!myrank) {
-            printf("rank 0 bv_write in progress, data size = %llu, contig access account = %d, round = %d, request left = %d\n", (long long unsigned)temp, request_processed, i, contig_access_count - i * BV_MAX_REQUEST);
+            printf("rank 0 bv_write in progress, data size = %llu, contig access account = %d, round = %d, request left = %d\n", (long long unsigned) mem_processed, request_processed, i, contig_access_count - i * BV_MAX_REQUEST);
         }
         response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &(tmp_ptr), (uint64_t*) (&mem_processed), (int64_t) request_processed, bv_file_offset + i * BV_MAX_REQUEST, bv_file_sizes + i * BV_MAX_REQUEST);
         tmp_ptr += mem_processed;
