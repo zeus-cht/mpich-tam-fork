@@ -305,7 +305,7 @@ void ADIOI_BV_TAM_write(ADIO_File fd, const void *buf, int count, MPI_Datatype d
     //ADIOI_Free(array_of_displacements);
 }
 
-void ADIOI_BV_TAM_pre_read(ADIO_File fd, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests, int64_t *total_mem_size) {
+void ADIOI_BV_TAM_pre_read(ADIO_File fd, MPI_Datatype datatype, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests, int64_t *total_mem_size) {
     int i, j, k, myrank;
     uint64_t total_memory = 0;
     /* First one is the total number of file offsets to be accessed, the second one is the total memory size. */
@@ -515,7 +515,7 @@ void ADIOI_BV_ReadStridedColl(ADIO_File fd,
         bv_file_sizes[i] = (uint64_t) len_list[i];
     }
     //printf("rank 0 before bv_write, data size = %llu, contig access account = %d\n", (long long unsigned)contig_buf_size, contig_access_count);
-    ADIOI_BV_TAM_pre_read(fd, contig_access_count, bv_file_offset, bv_file_sizes, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
+    ADIOI_BV_TAM_pre_read(fd, datatype, contig_access_count, bv_file_offset, bv_file_sizes, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
 
     //ADIOI_Free(contig_buf);
     ADIOI_Free(offset_list);
