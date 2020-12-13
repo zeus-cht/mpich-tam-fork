@@ -118,9 +118,20 @@ void ADIOI_BV_ReadStrided(ADIO_File fd,
                                   error_code, READ_OP);
 }
 
+void ADIOI_BV_WriteStrided(ADIO_File fd,
+                               const void *buf,
+                               int count,
+                               MPI_Datatype datatype,
+                               int file_ptr_type,
+                               ADIO_Offset offset, ADIO_Status * status, int *error_code)
+{
+    ADIOI_BV_OldStridedListIO(fd, (void *) buf, count, datatype, file_ptr_type, offset, status,
+                                  error_code, WRITE_OP);
+}
+
 #define BV_MAX_REQUEST 4096
 
-void ADIOI_BV_WriteStrided(ADIO_File fd,
+void ADIOI_BV_WriteStridedColl(ADIO_File fd,
                                const void *buf,
                                int count,
                                MPI_Datatype datatype,
