@@ -138,7 +138,7 @@ void ADIOI_BV_TAM_write(ADIO_File fd,const void *buf, int count, MPI_Datatype da
     off_t *file_offset, *off_ptr;
     uint64_t *offset_length, *uint64_ptr;
     char *buf_ptr, *tmp_ptr;
-    MPI_Datatype new_type, *new_types, new_type2[3];
+    MPI_Datatype new_type, *new_types, new_types2[3];
     int array_of_blocklengths[3];
     MPI_Aint array_of_displacements[3];
     //MPI_Count *array_of_blocklengths_64 = (MPI_Count *) ADIOI_Malloc( (mem_count + 2) * sizeof(MPI_Count) );
@@ -526,7 +526,7 @@ void ADIOI_BV_WriteStridedColl(ADIO_File fd,
         bv_file_sizes[i] = (uint64_t) len_list[i];
     }
     //printf("rank 0 before bv_write, data size = %llu, contig access account = %d\n", (long long unsigned)contig_buf_size, contig_access_count);
-    ADIOI_BV_TAM_write(fd, 1, (const char **) &(contig_buf), (uint64_t*) (&contig_buf_size), (int64_t) contig_access_count, bv_file_offset, bv_file_sizes, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
+    ADIOI_BV_TAM_write(fd, buf, count, datatype, 1, (const char **) &(contig_buf), (uint64_t*) (&contig_buf_size), (int64_t) contig_access_count, bv_file_offset, bv_file_sizes, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
 
     ADIOI_Free(contig_buf);
     ADIOI_Free(offset_list);
