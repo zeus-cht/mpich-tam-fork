@@ -555,13 +555,14 @@ void ADIOI_BV_ReadStridedColl(ADIO_File fd,
 
 
     MPI_Type_size_x(datatype, &contig_buf_size);
+    contig_buf_size *= count;
     contig_buf = (char *) ADIOI_Malloc( sizeof(char) * contig_buf_size );
     position = 0;
     MPI_Pack(buf, count, datatype, contig_buf, contig_buf_size, &position, fd->comm);
 
     ADIOI_BV_OldStridedListIO(fd, buf, count, datatype, file_ptr_type, offset, status,
                                   error_code, READ_OP);
-
+    position = 0;
     char *contig_buf2 = (char *) ADIOI_Malloc( sizeof(char) * contig_buf_size );
     MPI_Pack(buf, count, datatype, contig_buf2, contig_buf_size, &position, fd->comm);
 
