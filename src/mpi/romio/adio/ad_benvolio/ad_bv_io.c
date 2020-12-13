@@ -163,7 +163,7 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
         printf("total file size = %llu, contig_buf_size = %llu\n", total_file_size, (long long unsigned) contig_buf_size);
     }
     if (!myrank) {
-        printf("rank 0 before bv_write\n");
+        printf("rank 0 before bv_write, data size = %llu, contig access account = %d\n", (long long unsigned)contig_buf_size, contig_access_count);
     }
     response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &contig_buf, (uint64_t*) (&contig_buf_size), (int64_t) contig_access_count, bv_file_offset, bv_file_sizes);
     if (!myrank) {
