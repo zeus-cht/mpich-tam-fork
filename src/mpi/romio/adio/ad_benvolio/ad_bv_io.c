@@ -272,8 +272,8 @@ void ADIOI_BV_TAM_write(ADIO_File fd,const void *buf, int count, MPI_Datatype da
 */
 
         array_of_blocklengths[0] = count;
-        array_of_blocklengths[1] = sizeof(ADIO_Offset) * contig_access_count;
-        array_of_blocklengths[2] = sizeof(ADIO_Offset) * contig_access_count;
+        array_of_blocklengths[1] = sizeof(ADIO_Offset) * file_count;
+        array_of_blocklengths[2] = sizeof(ADIO_Offset) * file_count;
         array_of_displacements[0] = (MPI_Aint) buf;
         array_of_displacements[1] = (MPI_Aint) file_starts;
         array_of_displacements[2] = (MPI_Aint) file_sizes;
