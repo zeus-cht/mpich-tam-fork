@@ -522,34 +522,33 @@ void ADIOI_BV_ReadStridedColl(ADIO_File fd,
     ADIOI_Free(bv_file_offset);
     ADIOI_Free(bv_file_sizes);
 
-    if ( !fd->is_local_aggregator ) {
+    if ( fd->is_local_aggregator ) {
         // Local aggregators are going to proxy the rest of work.
-        return;
-    }
-
-    contig_buf = fd->local_buf;
-    contig_buf_size = local_data_size;
-    bv_file_offset = local_file_offset;
-    bv_file_sizes = local_offset_length;
-    contig_access_count = number_of_requests;
+        contig_buf = fd->local_buf;
+        contig_buf_size = local_data_size;
+        bv_file_offset = local_file_offset;
+        bv_file_sizes = local_offset_length;
+        contig_access_count = number_of_requests;
  
+        ntimes = (contig_access_count + BV_MAX_REQUEST - 1) / BV_MAX_REQUEST;
+        tmp_ptr = contig_buf;
+        for ( i = 0 ; i < ntimes; ++i ) {
+            if (contig_access_count - i * BV_MAX_REQUEST < BV_MAX_REQUEST) {
+                request_processed = contig_access_count - i * BV_MAX_REQUEST;
+            } else {
+                request_processed = BV_MAX_REQUEST;
+            }
+            mem_processed = 0;
+            for ( j = 0; j < request_processed; ++j ) {
+                mem_processed += bv_file_sizes[i * BV_MAX_REQUEST + j];
+            }
 
-    ntimes = (contig_access_count + BV_MAX_REQUEST - 1) / BV_MAX_REQUEST;
-    tmp_ptr = contig_buf;
-    for ( i = 0 ; i < ntimes; ++i ) {
-        if (contig_access_count - i * BV_MAX_REQUEST < BV_MAX_REQUEST) {
-            request_processed = contig_access_count - i * BV_MAX_REQUEST;
-        } else {
-            request_processed = BV_MAX_REQUEST;
+            response = bv_read(fd->fs_ptr, fd->filename, 1, (const char **) &(tmp_ptr), (uint64_t*) (&mem_processed), (int64_t) request_processed, bv_file_offset + i * BV_MAX_REQUEST, bv_file_sizes + i * BV_MAX_REQUEST);
+            tmp_ptr += mem_processed;
         }
-        mem_processed = 0;
-        for ( j = 0; j < request_processed; ++j ) {
-            mem_processed += bv_file_sizes[i * BV_MAX_REQUEST + j];
-        }
-
-        response = bv_read(fd->fs_ptr, fd->filename, 1, (const char **) &(tmp_ptr), (uint64_t*) (&mem_processed), (int64_t) request_processed, bv_file_offset + i * BV_MAX_REQUEST, bv_file_sizes + i * BV_MAX_REQUEST);
-        tmp_ptr += mem_processed;
     }
+
+
     ADIOI_BV_TAM_post_read(fd, buf, count, datatype);
 
 /*
