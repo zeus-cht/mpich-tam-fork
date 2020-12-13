@@ -123,7 +123,7 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
                                int file_ptr_type,
                                ADIO_Offset offset, ADIO_Status * status, int *error_code)
 {
-    int contig_access_count = 0;
+    int i, contig_access_count = 0;
     ADIO_Offset *offset_list = NULL, start_offset, end_offset;
     ADIO_Offset *len_list = NULL;
     MPI_Count buftype_size = MPI_Type_size_x(datatype, &buftype_size);
@@ -137,8 +137,21 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
                           &end_offset, &contig_access_count);
     MPI_Pack(buf, count, datatype, contig_buf, contig_buf_size, &position, fd->comm);
 
-    response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &contig_buf, &buftype_size, contig_access_count, offset_list, len_list);
+  
+    off_t *bv_file_offset = (off_t *) ADIOI_Malloc( sizeof(off_t) * contig_access_count );
+    uint64_t *bv_file_sizes = (uint64_t *) ADIOI_Malloc( sizeof(uint64_t) * contig_access_count );
+    for ( i = 0; i < contig_access_count; ++i ) {
+        bv_file_offset[i] = (off_t) offset_list[i];
+        bv_file_sizes[i] = (uint64_t) len_list[i];
+    }
+
+    response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &contig_buf, (uint64_t*) (&buftype_size), (int64_t) contig_access_count, bv_file_offset, bv_file_sizes);
+
     ADIOI_Free(contig_buf);
+    ADIOI_Free(offset_list);
+    ADIOI_Free(len_list);
+    ADIOI_Free(bv_file_offset);
+    ADIOI_Free(bv_file_sizes);
 /*
     ADIOI_BV_OldStridedListIO(fd, (void *) buf, count, datatype, file_ptr_type, offset, status,
                                   error_code, WRITE_OP);
