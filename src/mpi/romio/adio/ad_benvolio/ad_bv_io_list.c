@@ -374,6 +374,8 @@ void ADIOI_BV_TAM_write(ADIO_File fd, const int64_t mem_count, const char **mem_
                     memcpy((void*)tmp_ptr, (void*)mem_addresses[k], sizeof(char) * mem_sizes[k]);
                     tmp_ptr += mem_sizes[k];
                 }
+                memcpy(off_ptr, file_starts, fd->bv_meta_data[2 * i] * sizeof(off_t));
+                memcpy(uint64_ptr, file_sizes, fd->bv_meta_data[2 * i] * sizeof(off_t));
             }
             buf_ptr += fd->bv_meta_data[2 * i + 1];
             off_ptr += fd->bv_meta_data[2 * i];
