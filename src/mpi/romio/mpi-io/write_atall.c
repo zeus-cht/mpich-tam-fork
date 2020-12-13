@@ -47,7 +47,6 @@ int MPI_File_write_at_all(MPI_File fh, MPI_Offset offset, ROMIO_CONST void *buf,
 {
     int error_code;
     static char myname[] = "MPI_FILE_WRITE_AT_ALL";
-    printf("entered MPI-IO function %s\n", myname);
 #ifdef MPI_hpux
     int fl_xmpi;
 

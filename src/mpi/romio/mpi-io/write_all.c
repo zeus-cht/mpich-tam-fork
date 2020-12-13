@@ -69,6 +69,7 @@ int MPIOI_File_write_all(MPI_File fh,
                          const void *buf,
                          int count, MPI_Datatype datatype, char *myname, MPI_Status * status)
 {
+    printf("entered MPIOI_File_write_all\n");
     int error_code;
     MPI_Count datatype_size;
     ADIO_File adio_fh;
