@@ -132,6 +132,9 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     int position = 0;
     MPI_Offset response = 0;
     MPI_Request req[2];
+    int myrank;
+
+    MPI_Comm_rank(fd->comm, &myrank);
 
     ADIOI_Calc_my_off_len(fd, count, datatype, file_ptr_type, offset,
                           &offset_list, &len_list, &start_offset,
