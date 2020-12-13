@@ -132,6 +132,7 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     int position = 0;
     MPI_Offset response = 0;
     MPI_Request req[2];
+    MPI_Status sts[2];
     int myrank;
 
     MPI_Comm_rank(fd->comm, &myrank);
@@ -143,7 +144,7 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     MPI_Irecv(contig_buf, contig_buf_size, MPI_BYTE, myrank, myrank, fd->comm, &req[0]);
     MPI_Isend(buf, count, datatype, myrank, myrank, fd->comm, &req[1]);
     //MPI_Pack(buf, count, datatype, contig_buf, contig_buf_size, &position, fd->comm);
-    MPI_Waitall(2, req, MPI_STATUSES_IGNORE);
+    MPI_Waitall(2, req, sts);
   
     off_t *bv_file_offset = (off_t *) ADIOI_Malloc( sizeof(off_t) * contig_access_count );
     uint64_t *bv_file_sizes = (uint64_t *) ADIOI_Malloc( sizeof(uint64_t) * contig_access_count );
