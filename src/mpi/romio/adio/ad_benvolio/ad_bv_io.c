@@ -161,16 +161,21 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     }
     if (total_file_size != contig_buf_size) {
         printf("total file size = %llu, contig_buf_size = %llu\n", total_file_size, (long long unsigned) contig_buf_size);
-    } 
-    //response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &contig_buf, (uint64_t*) (&contig_buf_size), (int64_t) contig_access_count, bv_file_offset, bv_file_sizes);
-
+    }
+    if (!myrank) {
+        printf("rank 0 before bv_write\n");
+    }
+    response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &contig_buf, (uint64_t*) (&contig_buf_size), (int64_t) contig_access_count, bv_file_offset, bv_file_sizes);
+    if (!myrank) {
+        printf("rank 0 after bv_write\n");
+    }
     ADIOI_Free(contig_buf);
     ADIOI_Free(offset_list);
     //ADIOI_Free(len_list);
     ADIOI_Free(bv_file_offset);
     ADIOI_Free(bv_file_sizes);
-
+/*
     ADIOI_BV_OldStridedListIO(fd, (void *) buf, count, datatype, file_ptr_type, offset, status,
                                   error_code, WRITE_OP);
-
+*/
 }
