@@ -184,9 +184,8 @@ void ADIOI_BV_WriteStridedColl(ADIO_File fd,
         printf("rank 0 before bv_write, data size = %llu, contig access account = %d\n", (long long unsigned)contig_buf_size, contig_access_count);
     }
 */
-    printf("rank 0 before bv_write, data size = %llu, contig access account = %d\n", (long long unsigned)contig_buf_size, contig_access_count);
-    MPI_Barrier(fd->comm);
-    //ADIOI_BV_TAM_write(fd, 1, (const char **) &(contig_buf), (uint64_t*) (&contig_buf_size), (int64_t) contig_access_count, bv_file_offset, bv_file_sizes, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
+    //printf("rank 0 before bv_write, data size = %llu, contig access account = %d\n", (long long unsigned)contig_buf_size, contig_access_count);
+    ADIOI_BV_TAM_write(fd, 1, (const char **) &(contig_buf), (uint64_t*) (&contig_buf_size), (int64_t) contig_access_count, bv_file_offset, bv_file_sizes, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
 
     ntimes = (contig_access_count + BV_MAX_REQUEST - 1) / BV_MAX_REQUEST;
     tmp_ptr = contig_buf;
@@ -200,11 +199,11 @@ void ADIOI_BV_WriteStridedColl(ADIO_File fd,
         for ( j = 0; j < request_processed; ++j ) {
             mem_processed += len_list[i * BV_MAX_REQUEST + j];
         }
-
+/*
         if (!myrank) {
             printf("rank 0 bv_write in progress, data size = %llu, contig access account = %d, round = %d, request left = %d\n", (long long unsigned) mem_processed, request_processed, i, contig_access_count - i * BV_MAX_REQUEST);
         }
-
+*/
         response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &(tmp_ptr), (uint64_t*) (&mem_processed), (int64_t) request_processed, bv_file_offset + i * BV_MAX_REQUEST, bv_file_sizes + i * BV_MAX_REQUEST);
         tmp_ptr += mem_processed;
     }
