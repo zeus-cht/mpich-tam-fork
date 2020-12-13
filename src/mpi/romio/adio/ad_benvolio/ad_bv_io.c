@@ -128,7 +128,7 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
 }
 
 
-void ADIOI_BV_TAM_write(ADIO_File fd,const void *buf, int count, MPI_Datatype datatype, const int64_t mem_count, const uint64_t *mem_sizes, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests, int64_t *total_mem_size) {
+void ADIOI_BV_TAM_write(ADIO_File fd,const void *buf, int count, MPI_Datatype datatype, const int64_t file_count, const off_t *file_starts, const uint64_t *file_sizes, off_t **file_offset_ptr, uint64_t **offset_length_ptr, int64_t *number_of_requests, int64_t *total_mem_size) {
     int i, j, k, myrank, position = 0;
     uint64_t total_memory = 0;
     /* First one is the total number of file offsets to be accessed, the second one is the total memory size. */
