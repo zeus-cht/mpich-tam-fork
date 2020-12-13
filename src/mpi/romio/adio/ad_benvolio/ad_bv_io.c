@@ -184,8 +184,26 @@ void ADIOI_BV_WriteStridedColl(ADIO_File fd,
         printf("rank 0 before bv_write, data size = %llu, contig access account = %d\n", (long long unsigned)contig_buf_size, contig_access_count);
     }
 */
-    //printf("rank 0 before bv_write, data size = %llu, contig access account = %d\n", (long long unsigned)contig_buf_size, contig_access_count);
+    printf("rank 0 before bv_write, data size = %llu, contig access account = %d\n", (long long unsigned)contig_buf_size, contig_access_count);
     ADIOI_BV_TAM_write(fd, 1, (const char **) &(contig_buf), (uint64_t*) (&contig_buf_size), (int64_t) contig_access_count, bv_file_offset, bv_file_sizes, &local_file_offset, &local_offset_length, &number_of_requests, &local_data_size);
+
+    ADIOI_Free(contig_buf);
+    ADIOI_Free(offset_list);
+    //ADIOI_Free(len_list);
+    ADIOI_Free(bv_file_offset);
+    ADIOI_Free(bv_file_sizes);
+
+    if ( !fd->is_local_aggregator) {
+        // Local aggregators are going to proxy the rest of work.
+        return;
+    }
+
+    contig_buf = fd->local_buf;
+    contig_buf_size = local_data_size;
+    bv_file_offset = local_file_offset;
+    bv_file_sizes = local_offset_length;
+    contig_access_count = number_of_requests;
+    
 
     ntimes = (contig_access_count + BV_MAX_REQUEST - 1) / BV_MAX_REQUEST;
     tmp_ptr = contig_buf;
@@ -213,11 +231,7 @@ void ADIOI_BV_WriteStridedColl(ADIO_File fd,
         printf("rank 0 after bv_write\n");
     }
 */
-    ADIOI_Free(contig_buf);
-    ADIOI_Free(offset_list);
-    //ADIOI_Free(len_list);
-    ADIOI_Free(bv_file_offset);
-    ADIOI_Free(bv_file_sizes);
+
 /*
     ADIOI_BV_OldStridedListIO(fd, (void *) buf, count, datatype, file_ptr_type, offset, status,
                                   error_code, WRITE_OP);
