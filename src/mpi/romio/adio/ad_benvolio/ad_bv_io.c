@@ -563,10 +563,9 @@ void ADIOI_BV_ReadStridedColl(ADIO_File fd,
                                   error_code, READ_OP);
 
     char *contig_buf2 = (char *) ADIOI_Malloc( sizeof(char) * contig_buf_size );
-    MPI_Count contig_buf_size2;
-    MPI_Pack(buf, count, datatype, contig_buf2, contig_buf_size2, &position, fd->comm);
+    MPI_Pack(buf, count, datatype, contig_buf2, contig_buf_size, &position, fd->comm);
 
-    for ( i = 0; i < (int)contig_buf_size2; ++i ) {
+    for ( i = 0; i < (int)contig_buf_size; ++i ) {
         if ( contig_buf2[i] != contig_buf[i] ) {
             printf("critical error !!!!!!!!!!!!!!!!!!!!!!!!!\n");
             break;
