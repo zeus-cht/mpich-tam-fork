@@ -142,6 +142,8 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
                           &end_offset, &contig_access_count);
 
     contig_buf = (char *) ADIOI_Malloc( sizeof(char) * contig_buf_size );
+
+    printf("rank %d self-recv %lld, send count = %d\n", myrank, contig_buf_size, count);
     MPI_Irecv(contig_buf, contig_buf_size, MPI_BYTE, myrank, myrank, fd->comm, &req[0]);
     MPI_Isend(buf, count, datatype, myrank, myrank, fd->comm, &req[1]);
     //MPI_Pack(buf, count, datatype, contig_buf, contig_buf_size, &position, fd->comm);
