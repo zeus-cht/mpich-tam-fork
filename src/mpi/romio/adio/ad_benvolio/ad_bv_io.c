@@ -141,6 +141,7 @@ void ADIOI_BV_TAM_write(ADIO_File fd,const void *buf, int count, MPI_Datatype da
     MPI_Datatype new_type, *new_types, new_types2[3];
     int array_of_blocklengths[3];
     MPI_Aint array_of_displacements[3];
+    MPI_Count buftype_size;
     //MPI_Count *array_of_blocklengths_64 = (MPI_Count *) ADIOI_Malloc( (mem_count + 2) * sizeof(MPI_Count) );
     //MPI_Aint *array_of_displacements = (MPI_Aint *) ADIOI_Malloc( (mem_count + 3) * sizeof(MPI_Aint) );
 
@@ -149,10 +150,8 @@ void ADIOI_BV_TAM_write(ADIO_File fd,const void *buf, int count, MPI_Datatype da
     MPI_Comm_rank(fd->comm, &myrank);
     /* First one is the number of I/O requests. The second one is the size of data (total I/O accesses size). */
     bv_meta_data[0] = (uint64_t) file_count;
-    bv_meta_data[1] = 0;
-    for ( i = 0; i < mem_count; ++i ) {
-        bv_meta_data[1] += mem_sizes[i];
-    }
+    MPI_Type_size_x(datatype, &buftype_size);
+    bv_meta_data[1] = (uint64_t ) buftype_size * count;
 
     j = 0;
     if (fd->is_local_aggregator) {
@@ -321,15 +320,16 @@ void ADIOI_BV_TAM_pre_read(ADIO_File fd, const int64_t file_count, const off_t *
     int array_of_blocklengths[2];
     MPI_Count array_of_blocklengths_64[2];
     MPI_Aint array_of_displacements[2];
-    MPI_Count buftype_size;
 
     MPI_Request *req = fd->req;
     MPI_Status *sts = fd->sts;
     MPI_Comm_rank(fd->comm, &myrank);
     /* First one is the number of I/O requests. The second one is the size of data (total I/O accesses size). */
-    MPI_Type_size_x(datatype, &buftype_size);
     bv_meta_data[0] = (uint64_t) file_count;
-    bv_meta_data[1] = (uint64_t ) buftype_size * count;
+    bv_meta_data[1] = 0;
+    for ( i = 0; i < mem_count; ++i ) {
+        bv_meta_data[1] += mem_sizes[i];
+    }
 
     j = 0;
     if (fd->is_local_aggregator) {
