@@ -123,6 +123,24 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
                                int file_ptr_type,
                                ADIO_Offset offset, ADIO_Status * status, int *error_code)
 {
+    int contig_access_count = 0;
+    ADIO_Offset *offset_list = NULL, start_offset, end_offset;
+    ADIO_Offset *len_list = NULL;
+    MPI_Count buftype_size = MPI_Type_size_x(datatype, &buftype_size);
+    MPI_Count contig_buf_size = buftype_size * count;
+    char *contig_buf = (char *) ADIOI_Malloc( contig_buf_size );
+    int position = 0;
+    MPI_Offset response = 0;
+
+    ADIOI_Calc_my_off_len(fd, count, datatype, file_ptr_type, offset,
+                          &offset_list, &len_list, &start_offset,
+                          &end_offset, &contig_access_count);
+    MPI_Pack(buf, count, datatype, contig_buf, contig_buf_size, &position, fd->comm);
+
+    response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &contig_buf, &buftype_size, contig_access_count, offset_list, len_list);
+    ADIOI_Free(contig_buf);
+/*
     ADIOI_BV_OldStridedListIO(fd, (void *) buf, count, datatype, file_ptr_type, offset, status,
                                   error_code, WRITE_OP);
+*/
 }
