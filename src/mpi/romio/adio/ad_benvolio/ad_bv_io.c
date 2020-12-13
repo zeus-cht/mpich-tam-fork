@@ -462,7 +462,7 @@ void ADIOI_BV_TAM_post_read(ADIO_File fd, void *buf, int count, MPI_Datatype dat
     }
 }
 
-#define BV_MAX_REQUEST 4096
+#define BV_MAX_REQUEST 16384
 
 void ADIOI_BV_ReadStridedColl(ADIO_File fd,
                               void *buf,
@@ -479,7 +479,6 @@ void ADIOI_BV_ReadStridedColl(ADIO_File fd,
 
     MPI_Count contig_buf_size;
     char *contig_buf, *tmp_ptr;
-    int position = 0;
     MPI_Offset response = 0;
     MPI_Request req[2];
     MPI_Status sts[2];
@@ -553,7 +552,8 @@ void ADIOI_BV_ReadStridedColl(ADIO_File fd,
     }
     ADIOI_BV_TAM_post_read(fd, buf, count, datatype);
 
-
+/*
+    int position = 0;
     MPI_Type_size_x(datatype, &contig_buf_size);
     contig_buf_size *= count;
     contig_buf = (char *) ADIOI_Malloc( sizeof(char) * contig_buf_size );
@@ -574,6 +574,7 @@ void ADIOI_BV_ReadStridedColl(ADIO_File fd,
     }
     ADIOI_Free(contig_buf);
     ADIOI_Free(contig_buf2);
+*/
 }
 
 void ADIOI_BV_WriteStridedColl(ADIO_File fd,
