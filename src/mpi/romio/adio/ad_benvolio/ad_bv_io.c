@@ -128,19 +128,20 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     ADIO_Offset *len_list = NULL;
     MPI_Count buftype_size = MPI_Type_size_x(datatype, &buftype_size);
     MPI_Count contig_buf_size = buftype_size * count;
-    char *contig_buf = (char *) ADIOI_Malloc( sizeof(char) * contig_buf_size );
+    char *contig_buf;
     int position = 0;
     MPI_Offset response = 0;
     MPI_Request req[2];
     MPI_Status sts[2];
     int myrank;
-
+/*
     MPI_Comm_rank(fd->comm, &myrank);
 
     ADIOI_Calc_my_off_len(fd, count, datatype, file_ptr_type, offset,
                           &offset_list, &len_list, &start_offset,
                           &end_offset, &contig_access_count);
 
+    contig_buf = (char *) ADIOI_Malloc( sizeof(char) * contig_buf_size );
     MPI_Irecv(contig_buf, contig_buf_size, MPI_BYTE, myrank, myrank, fd->comm, &req[0]);
     MPI_Isend(buf, count, datatype, myrank, myrank, fd->comm, &req[1]);
     //MPI_Pack(buf, count, datatype, contig_buf, contig_buf_size, &position, fd->comm);
@@ -160,8 +161,8 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     ADIOI_Free(len_list);
     ADIOI_Free(bv_file_offset);
     ADIOI_Free(bv_file_sizes);
-/*
+*/
     ADIOI_BV_OldStridedListIO(fd, (void *) buf, count, datatype, file_ptr_type, offset, status,
                                   error_code, WRITE_OP);
-*/
+
 }
