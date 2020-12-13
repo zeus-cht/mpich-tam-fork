@@ -326,11 +326,12 @@ void ADIOI_BV_TAM_pre_read(ADIO_File fd, const int64_t file_count, const off_t *
     MPI_Comm_rank(fd->comm, &myrank);
     /* First one is the number of I/O requests. The second one is the size of data (total I/O accesses size). */
     bv_meta_data[0] = (uint64_t) file_count;
+/*
     bv_meta_data[1] = 0;
     for ( i = 0; i < mem_count; ++i ) {
         bv_meta_data[1] += mem_sizes[i];
     }
-
+*/
     j = 0;
     if (fd->is_local_aggregator) {
         for ( i = 0; i < fd->nprocs_aggregator; ++i ) {
