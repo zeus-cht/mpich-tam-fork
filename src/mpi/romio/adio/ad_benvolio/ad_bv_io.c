@@ -132,13 +132,12 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     MPI_Type_size_x(datatype, &buftype_size);
 
     MPI_Count contig_buf_size;
-    char *contig_buf, *but_ptr;
+    char *contig_buf;
     int position = 0;
     MPI_Offset response = 0;
     MPI_Request req[2];
     MPI_Status sts[2];
     int myrank;
-    uint64_t temp_mem_size;
     int ntimes, request_processed;
     MPI_Count mem_processed, temp;
 
@@ -170,7 +169,7 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     mem_processed = 0;
     for ( i = 0 ; i < ntimes; ++i ) {
 
-        request_processed = MIN(contig_access_account - i * BV_MAX_REQUEST, BV_MAX_REQUEST);
+        request_processed = MIN(contig_access_count - i * BV_MAX_REQUEST, BV_MAX_REQUEST);
         temp = 0;
         for ( j = 0; j < request_processed; ++j ) {
             temp += len_list[i * BV_MAX_REQUEST + j];
