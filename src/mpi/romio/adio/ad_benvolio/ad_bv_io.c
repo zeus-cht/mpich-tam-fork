@@ -165,11 +165,14 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
         printf("rank 0 before bv_write, data size = %llu, contig access account = %d\n", (long long unsigned)contig_buf_size, contig_access_count);
     }
     
-    ntimes = (contig_access_account + BV_MAX_REQUEST - 1) / BV_MAX_REQUEST;
+    ntimes = (contig_access_count + BV_MAX_REQUEST - 1) / BV_MAX_REQUEST;
     mem_processed = 0;
     for ( i = 0 ; i < ntimes; ++i ) {
-
-        request_processed = MIN(contig_access_count - i * BV_MAX_REQUEST, BV_MAX_REQUEST);
+        if (contig_access_count - i * BV_MAX_REQUEST < BV_MAX_REQUEST) {
+            request_processed = contig_access_count - i * BV_MAX_REQUEST;
+        } else {
+            request_processed = BV_MAX_REQUEST;
+        }
         temp = 0;
         for ( j = 0; j < request_processed; ++j ) {
             temp += len_list[i * BV_MAX_REQUEST + j];
