@@ -553,6 +553,27 @@ void ADIOI_BV_ReadStridedColl(ADIO_File fd,
     }
     ADIOI_BV_TAM_post_read(fd, buf, count, datatype);
 
+
+    MPI_Type_size_x(datatype, &contig_buf_size);
+    contig_buf = (char *) ADIOI_Malloc( sizeof(char) * contig_buf_size );
+    position = 0;
+    MPI_Pack(buf, count, datatype, contig_buf, contig_buf_size, &position, fd->comm);
+
+    ADIOI_BV_OldStridedListIO(fd, buf, count, datatype, file_ptr_type, offset, status,
+                                  error_code, READ_OP);
+
+    char *contig_buf2 = (char *) ADIOI_Malloc( sizeof(char) * contig_buf_size );
+    MPI_Count contig_buf_size2;
+    MPI_Pack(buf, count, datatype, contig_buf2, contig_buf_size2, &position, fd->comm);
+
+    for ( i = 0; i < (int)contig_buf_size2; ++i ) {
+        if ( contig_buf2[i] != contig_buf[i] ) {
+            printf("critical error !!!!!!!!!!!!!!!!!!!!!!!!!\n");
+            break;
+        }
+    }
+    ADIOI_Free(contig_buf);
+    ADIOI_Free(contig_buf2);
 }
 
 void ADIOI_BV_WriteStridedColl(ADIO_File fd,
@@ -570,7 +591,6 @@ void ADIOI_BV_WriteStridedColl(ADIO_File fd,
 
     MPI_Count contig_buf_size;
     char *contig_buf, *tmp_ptr;
-    int position = 0;
     MPI_Offset response = 0;
     int myrank;
     int ntimes, request_processed;
