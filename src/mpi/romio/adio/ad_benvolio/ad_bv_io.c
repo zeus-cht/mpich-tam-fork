@@ -156,7 +156,7 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     for ( i = 0; i < contig_access_count; ++i ) {
         bv_file_offset[i] = (off_t) offset_list[i];
         bv_file_sizes[i] = (uint64_t) len_list[i];
-        total_file_size += bv_file_size[i];
+        total_file_size += bv_file_sizes[i];
     }
     if (total_file_size != contig_buf_size) {
         printf("total file size = %llu, contig_buf_size = %llu\n", total_file_size, (long long unsigned) contig_buf_size);
