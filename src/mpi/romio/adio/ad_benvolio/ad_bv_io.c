@@ -116,6 +116,8 @@ void ADIOI_BV_ReadStrided(ADIO_File fd,
                                   error_code, READ_OP);
 }
 
+#define BV_MAX_REQUEST 1000
+
 void ADIOI_BV_WriteStrided(ADIO_File fd,
                                const void *buf,
                                int count,
@@ -123,20 +125,22 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
                                int file_ptr_type,
                                ADIO_Offset offset, ADIO_Status * status, int *error_code)
 {
-    int i, contig_access_count = 0;
+    int i, j, contig_access_count = 0;
     ADIO_Offset *offset_list = NULL, start_offset, end_offset;
     ADIO_Offset *len_list = NULL;
     MPI_Count buftype_size;
     MPI_Type_size_x(datatype, &buftype_size);
 
     MPI_Count contig_buf_size;
-    char *contig_buf;
+    char *contig_buf, *but_ptr;
     int position = 0;
     MPI_Offset response = 0;
     MPI_Request req[2];
     MPI_Status sts[2];
     int myrank;
-    long long unsigned total_file_size=0;
+    uint64_t temp_mem_size;
+    int ntimes, request_processed;
+    MPI_Count mem_processed, temp;
 
     MPI_Comm_rank(fd->comm, &myrank);
 
@@ -157,15 +161,28 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     for ( i = 0; i < contig_access_count; ++i ) {
         bv_file_offset[i] = (off_t) offset_list[i];
         bv_file_sizes[i] = (uint64_t) len_list[i];
-        total_file_size += bv_file_sizes[i];
-    }
-    if (total_file_size != contig_buf_size) {
-        printf("total file size = %llu, contig_buf_size = %llu\n", total_file_size, (long long unsigned) contig_buf_size);
     }
     if (!myrank) {
         printf("rank 0 before bv_write, data size = %llu, contig access account = %d\n", (long long unsigned)contig_buf_size, contig_access_count);
     }
-    response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &contig_buf, (uint64_t*) (&contig_buf_size), (int64_t) contig_access_count, bv_file_offset, bv_file_sizes);
+    
+    ntimes = (contig_access_account + BV_MAX_REQUEST - 1) / BV_MAX_REQUEST;
+    mem_processed = 0;
+    for ( i = 0 ; i < ntimes; ++i ) {
+
+        request_processed = MIN(contig_access_account - i * BV_MAX_REQUEST, BV_MAX_REQUEST);
+        temp = 0;
+        for ( j = 0; j < request_processed; ++j ) {
+            temp += len_list[i * BV_MAX_REQUEST + j];
+        }
+        if (!myrank) {
+            printf("rank 0 before bv_write, data size = %llu, contig access account = %d, round = %d\n", (long long unsigned)temp, request_processed, i);
+        }
+        response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &(contig_buf + mem_processed), (uint64_t*) (&temp), (int64_t) request_processed, bv_file_offset + i * BV_MAX_REQUEST, bv_file_sizes + i * BV_MAX_REQUEST);
+        mem_processed += temp;
+    }
+    //response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &contig_buf, (uint64_t*) (&contig_buf_size), (int64_t) contig_access_count, bv_file_offset, bv_file_sizes);
+
     if (!myrank) {
         printf("rank 0 after bv_write\n");
     }
