@@ -17,7 +17,7 @@ struct ADIOI_Fns_struct ADIO_BV_operations = {
         ADIOI_BV_ReadContig,    /* ReadContig */
     ADIOI_BV_WriteContig,       /* WriteContig */
     /* no collectives for BV: same as indep */
-    ADIOI_BV_ReadStrided,       /* ReadStridedColl */
+    ADIOI_BV_ReadStridedColl,       /* ReadStridedColl */
     ADIOI_BV_WriteStridedColl,      /* WriteStridedColl */
     ADIOI_GEN_SeekIndividual,   /* SeekIndividual */
     /* custom fcntl to obtain file size */
