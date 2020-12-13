@@ -136,6 +136,7 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     MPI_Request req[2];
     MPI_Status sts[2];
     int myrank;
+    long long unsigned total_file_size=0;
 
     MPI_Comm_rank(fd->comm, &myrank);
 
@@ -155,8 +156,11 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     for ( i = 0; i < contig_access_count; ++i ) {
         bv_file_offset[i] = (off_t) offset_list[i];
         bv_file_sizes[i] = (uint64_t) len_list[i];
+        total_file_size += bv_file_size[i];
     }
-
+    if (total_file_size != contig_buf_size) {
+        printf("total file size = %llu, contig_buf_size = %llu\n", total_file_size, (long long unsigned) contig_buf_size);
+    } 
     response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &contig_buf, (uint64_t*) (&contig_buf_size), (int64_t) contig_access_count, bv_file_offset, bv_file_sizes);
 
     ADIOI_Free(contig_buf);
