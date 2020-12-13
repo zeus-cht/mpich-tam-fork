@@ -157,7 +157,7 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
         bv_file_sizes[i] = (uint64_t) len_list[i];
     }
 
-    response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &contig_buf, (uint64_t*) (&buftype_size), (int64_t) contig_access_count, bv_file_offset, bv_file_sizes);
+    response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &contig_buf, (uint64_t*) (&contig_buf_size), (int64_t) contig_access_count, bv_file_offset, bv_file_sizes);
 
     ADIOI_Free(contig_buf);
     ADIOI_Free(offset_list);
