@@ -161,7 +161,7 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
 
     ADIOI_Free(contig_buf);
     ADIOI_Free(offset_list);
-    ADIOI_Free(len_list);
+    //ADIOI_Free(len_list);
     ADIOI_Free(bv_file_offset);
     ADIOI_Free(bv_file_sizes);
 /*
