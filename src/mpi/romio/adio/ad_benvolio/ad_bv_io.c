@@ -126,7 +126,9 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     int i, contig_access_count = 0;
     ADIO_Offset *offset_list = NULL, start_offset, end_offset;
     ADIO_Offset *len_list = NULL;
-    MPI_Count buftype_size = MPI_Type_size_x(datatype, &buftype_size);
+    MPI_Count buftype_size;
+    MPI_Type_size_x(datatype, &buftype_size);
+
     MPI_Count contig_buf_size = buftype_size * count;
     char *contig_buf;
     int position = 0;
@@ -143,12 +145,11 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
 
     contig_buf = (char *) ADIOI_Malloc( sizeof(char) * contig_buf_size );
 
-    printf("rank %d self-recv %lld, send count = %d\n", myrank, contig_buf_size, count);
     MPI_Irecv(contig_buf, contig_buf_size, MPI_BYTE, myrank, myrank, fd->comm, &req[0]);
     MPI_Isend(buf, count, datatype, myrank, myrank, fd->comm, &req[1]);
     //MPI_Pack(buf, count, datatype, contig_buf, contig_buf_size, &position, fd->comm);
     MPI_Waitall(2, req, sts);
-  /*
+ 
     off_t *bv_file_offset = (off_t *) ADIOI_Malloc( sizeof(off_t) * contig_access_count );
     uint64_t *bv_file_sizes = (uint64_t *) ADIOI_Malloc( sizeof(uint64_t) * contig_access_count );
     for ( i = 0; i < contig_access_count; ++i ) {
@@ -163,8 +164,8 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     ADIOI_Free(len_list);
     ADIOI_Free(bv_file_offset);
     ADIOI_Free(bv_file_sizes);
-*/
+/*
     ADIOI_BV_OldStridedListIO(fd, (void *) buf, count, datatype, file_ptr_type, offset, status,
                                   error_code, WRITE_OP);
-
+*/
 }
