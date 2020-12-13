@@ -116,7 +116,7 @@ void ADIOI_BV_ReadStrided(ADIO_File fd,
                                   error_code, READ_OP);
 }
 
-#define BV_MAX_REQUEST 5000
+#define BV_MAX_REQUEST 4096
 
 void ADIOI_BV_WriteStrided(ADIO_File fd,
                                const void *buf,
@@ -139,7 +139,7 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     MPI_Status sts[2];
     int myrank;
     int ntimes, request_processed;
-    MPI_Count mem_processed, temp;
+    MPI_Count mem_processed;
 
     MPI_Comm_rank(fd->comm, &myrank);
 
@@ -166,23 +166,22 @@ void ADIOI_BV_WriteStrided(ADIO_File fd,
     }
     
     ntimes = (contig_access_count + BV_MAX_REQUEST - 1) / BV_MAX_REQUEST;
-    mem_processed = 0;
+    tmp_ptr = contig_buf;
     for ( i = 0 ; i < ntimes; ++i ) {
         if (contig_access_count - i * BV_MAX_REQUEST < BV_MAX_REQUEST) {
             request_processed = contig_access_count - i * BV_MAX_REQUEST;
         } else {
             request_processed = BV_MAX_REQUEST;
         }
-        temp = 0;
+        mem_processed = 0;
         for ( j = 0; j < request_processed; ++j ) {
-            temp += len_list[i * BV_MAX_REQUEST + j];
+            mem_processed += len_list[i * BV_MAX_REQUEST + j];
         }
         if (!myrank) {
             printf("rank 0 bv_write in progress, data size = %llu, contig access account = %d, round = %d, request left = %d\n", (long long unsigned)temp, request_processed, i, contig_access_count - i * BV_MAX_REQUEST);
         }
-        tmp_ptr = contig_buf + mem_processed;
-        response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &(tmp_ptr), (uint64_t*) (&temp), (int64_t) request_processed, bv_file_offset + i * BV_MAX_REQUEST, bv_file_sizes + i * BV_MAX_REQUEST);
-        mem_processed += temp;
+        response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &(tmp_ptr), (uint64_t*) (&mem_processed), (int64_t) request_processed, bv_file_offset + i * BV_MAX_REQUEST, bv_file_sizes + i * BV_MAX_REQUEST);
+        tmp_ptr += mem_processed;
     }
     //response = bv_write(fd->fs_ptr, fd->filename, 1, (const char **) &contig_buf, (uint64_t*) (&contig_buf_size), (int64_t) contig_access_count, bv_file_offset, bv_file_sizes);
 
