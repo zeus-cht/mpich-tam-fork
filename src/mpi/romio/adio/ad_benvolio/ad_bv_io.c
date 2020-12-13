@@ -459,10 +459,12 @@ void ADIOI_BV_TAM_post_read(ADIO_File fd, const int64_t mem_count, const char **
                           MPI_BYTE, fd->aggregator_local_ranks[i], fd->aggregator_local_ranks[i] + myrank, fd->comm, &req[j++]);
             } else {
                 tmp_ptr = buf_ptr;
+/*
                 for ( k = 0; k < mem_count; ++k ) {
                     memcpy((void*)mem_addresses[k], (void*)tmp_ptr, sizeof(char) * mem_sizes[k]);
                     tmp_ptr += mem_sizes[k];
                 }
+*/
             }
             buf_ptr += fd->bv_meta_data[2 * i + 1];
         }
