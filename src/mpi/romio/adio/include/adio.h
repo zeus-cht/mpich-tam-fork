@@ -172,7 +172,7 @@ int ftruncate(int fd, off_t length);
 
 typedef struct ADIOI_Fns_struct ADIOI_Fns;
 typedef struct ADIOI_Hints_struct ADIOI_Hints;
-#define TIME_PROFILING 0
+#define TIME_PROFILING 1
 typedef struct ADIOI_FileD {
     int cookie;                 /* for error checking */
     FDTYPE fd_sys;              /* system file descriptor */
