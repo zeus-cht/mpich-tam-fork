@@ -9,11 +9,100 @@
 #include <unistd.h>
 #endif
 
+#if TIME_PROFILING==1
+int write_logs(ADIO_File fd, int myrank){
+    if ( fd->total_write_time == 0 ) {
+        return 0;
+    }
+    int nprocs;
+    MPI_Comm_size(fd->comm, &nprocs);
+    char filename[1024];
+    double write_two_phase_max, write_total_max;
+
+    MPI_Reduce(&(fd->write_two_phase), &write_two_phase_max, 1, MPI_DOUBLE, MPI_MAX, 0, fd->comm);
+    MPI_Reduce(&(fd->total_write_time), &write_total_max, 1, MPI_DOUBLE, MPI_MAX, 0, fd->comm);
+    if (myrank) {
+        return 0;
+    }
+    sprintf(filename,"collective_write_results_%d.csv",nprocs);
+    FILE* stream = fopen(filename,"r");
+    if (stream){
+        fclose(stream);
+        stream = fopen(filename,"a");
+
+    } else {
+        stream = fopen(filename,"w");
+        fprintf(stream,"# of processes,");
+        fprintf(stream,"# of global aggregators,");
+        fprintf(stream,"# of local aggregators,");
+        fprintf(stream,"# of collective write,");
+        fprintf(stream,"# of write collective loops,");
+
+        fprintf(stream,"calculate offsets,");
+        fprintf(stream,"calc my request,");
+        fprintf(stream,"calc other request,");
+        fprintf(stream,"write exchange,");
+
+        fprintf(stream,"intra wait meta,");
+        fprintf(stream,"intra wait data,");
+        fprintf(stream,"total intra time,");
+
+        fprintf(stream,"inter heap merge,");
+        fprintf(stream,"inter unpack,");
+        fprintf(stream,"inter ds,");
+        fprintf(stream,"inter wait,");
+        fprintf(stream,"total inter time,");
+
+        fprintf(stream,"I/O,");
+        fprintf(stream,"write_two_phase,");
+        fprintf(stream,"write_two_phase_max,");
+        fprintf(stream,"write total,");
+        fprintf(stream,"write total max\n");
+    }
+    fprintf(stream,"%d,", nprocs);
+    fprintf(stream,"%d,", fd->hints->cb_nodes);
+    fprintf(stream,"%d,", fd->local_aggregator_size);
+    fprintf(stream,"%d,", fd->n_coll_write);
+    fprintf(stream,"%d,", fd->ntimes);
+
+    fprintf(stream,"%lf,", fd->calc_offset_time);
+    fprintf(stream,"%lf,", fd->calc_my_request_time);
+    fprintf(stream,"%lf,", fd->calc_other_request_time);
+    fprintf(stream,"%lf,", fd->exchange_write);
+
+    fprintf(stream,"%lf,", fd->intra_wait_offset_time);
+    fprintf(stream,"%lf,", fd->intra_wait_data_time);
+    fprintf(stream,"%lf,", fd->total_intra_time);
+
+    fprintf(stream,"%lf,", fd->inter_heap_time);
+    fprintf(stream,"%lf,", fd->inter_unpack_time);
+    fprintf(stream,"%lf,", fd->inter_ds_time);
+    fprintf(stream,"%lf,", fd->inter_wait_time);
+    fprintf(stream,"%lf,", fd->total_inter_time);
+
+    fprintf(stream,"%lf,", fd->io_time);
+    fprintf(stream,"%lf,", fd->write_two_phase);
+    fprintf(stream,"%lf,", write_two_phase_max);
+    fprintf(stream,"%lf,", fd->total_write_time);
+    fprintf(stream,"%lf\n", write_total_max);
+
+
+    fclose(stream);
+    return 0;
+}
+#endif
+
 void ADIO_Close(ADIO_File fd, int *error_code)
 {
     int i, j, k, combiner, myrank, err;
     static char myname[] = "ADIO_CLOSE";
-
+    MPI_Comm_rank(fd->comm, &myrank);
+    #if TIME_PROFILING==1
+    if (myrank == 0) {
+        printf("Reporting time profiling, disabled write sync\n");
+    }
+    write_logs(fd, myrank);
+    #endif
     /*TAM cleanup*/
     if (fd->is_agg){
         ADIOI_Free(fd->local_aggregator_domain[0]);
@@ -69,7 +158,6 @@ void ADIO_Close(ADIO_File fd, int *error_code)
         /* if we are doing aggregation and deferred open, then it's possible
          * that rank 0 does not have access to the file. make sure only an
          * aggregator deletes the file.*/
-        MPI_Comm_rank(fd->comm, &myrank);
         if (myrank == fd->hints->ranklist[0]) {
             ADIO_Delete(fd->filename, &err);
         }

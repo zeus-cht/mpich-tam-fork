@@ -517,6 +517,52 @@ int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, in
         fd->req = (MPI_Request *) ADIOI_Malloc(sizeof(MPI_Request));
         fd->sts = (MPI_Status *) ADIOI_Malloc(sizeof(MPI_Status));
     }
+
+    #if TIME_PROFILING==1
+    fd->exchange_write = 0;
+    fd->exchange_read = 0;
+
+    fd->calc_offset_time = 0;
+    fd->calc_my_request_time = 0;
+    fd->calc_other_request_time = 0;
+
+    fd->total_intra_time = 0;
+    fd->intra_wait_offset_time = 0;
+    fd->intra_wait_data_time = 0;
+
+    fd->total_inter_time = 0;
+    fd->inter_heap_time = 0;
+    fd->inter_unpack_time = 0;
+    fd->inter_ds_time = 0;
+    fd->inter_wait_time = 0;
+
+    fd->io_time = 0;
+    fd->write_two_phase = 0;
+    fd->total_write_time = 0;
+
+    fd->read_calc_offset_time = 0;
+    fd->read_calc_my_request_time = 0;
+    fd->read_calc_other_request_time = 0;
+
+    fd->read_total_intra_time = 0;
+    fd->read_intra_wait_offset_time = 0;
+    fd->read_intra_wait_data_time = 0;
+
+    fd->read_inter_heap_time = 0;
+    fd->read_inter_unpack_time = 0;
+    fd->read_inter_ds_time = 0;
+    fd->read_inter_wait_time = 0;
+
+    fd->read_io_time = 0;
+    fd->total_read_time = 0;
+
+    fd->ntimes = 0;
+    fd->read_ntimes = 0;
+
+    fd->n_coll_read = 0;
+    fd->n_coll_write = 0;
+    #endif
+
     return 0;
 }
 

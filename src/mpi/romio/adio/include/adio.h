@@ -172,7 +172,7 @@ int ftruncate(int fd, off_t length);
 
 typedef struct ADIOI_Fns_struct ADIOI_Fns;
 typedef struct ADIOI_Hints_struct ADIOI_Hints;
-
+#define TIME_PROFILING 0
 typedef struct ADIOI_FileD {
     int cookie;                 /* for error checking */
     FDTYPE fd_sys;              /* system file descriptor */
@@ -273,6 +273,53 @@ typedef struct ADIOI_FileD {
     int romio_onesided_always_rmw;
     int romio_onesided_inform_rmw;
     int romio_tunegather;
+
+    #if TIME_PROFILING==1
+    double exchange_read;
+    double exchange_write;
+
+    double calc_offset_time;
+
+    double total_inter_time;
+    double inter_heap_time;
+    double inter_unpack_time;
+    double inter_ds_time;
+    double inter_wait_time;
+
+    double calc_my_request_time;
+    double calc_other_request_time;
+
+    double total_intra_time;
+    double intra_wait_offset_time;
+    double intra_wait_data_time;
+
+    double io_time;
+    double write_two_phase;
+    double total_write_time;
+
+    double read_calc_offset_time;
+    double read_inter_heap_time;
+    double read_inter_unpack_time;
+    double read_inter_ds_time;
+    double read_inter_wait_time;
+
+    double read_calc_my_request_time;
+    double read_calc_other_request_time;
+
+    double read_total_intra_time;
+    double read_intra_wait_offset_time;
+    double read_intra_wait_data_time;
+
+    double read_io_time;
+    double total_read_time;
+
+    int ntimes;
+    int read_ntimes;
+
+    int n_coll_read;
+    int n_coll_write;
+
+    #endif
 } ADIOI_FileD;
 
 typedef struct ADIOI_FileD *ADIO_File;

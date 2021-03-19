@@ -10,7 +10,6 @@
 
 #include "ad_lustre.h"
 #include "adio_extern.h"
-#define TIME_PROFILING 0
 
 
 #ifdef HAVE_LUSTRE_LOCKAHEAD
