@@ -98,9 +98,6 @@ void ADIO_Close(ADIO_File fd, int *error_code)
     static char myname[] = "ADIO_CLOSE";
     MPI_Comm_rank(fd->comm, &myrank);
     #if TIME_PROFILING==1
-    if (myrank == 0) {
-        printf("Reporting time profiling, disabled write sync\n");
-    }
     write_logs(fd, myrank);
     #endif
     /*TAM cleanup*/
