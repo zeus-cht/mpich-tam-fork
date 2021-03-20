@@ -190,7 +190,6 @@ void ADIOI_LUSTRE_WriteStridedColl(ADIO_File fd, const void *buf, int count,
         #if TIME_PROFILING==1
         fd->calc_offset_time += MPI_Wtime() - start_time;
         #endif
-        write_log_request(myrank, nprocs, offset_list, len_list, contig_access_count);
 
         /* All processes gather starting and ending file offsets of requests
          * from all processes into st_end_all[]. Even indices of st_end_all[]
@@ -301,6 +300,8 @@ void ADIOI_LUSTRE_WriteStridedColl(ADIO_File fd, const void *buf, int count,
          * into the file domains of each I/O aggregator.  No inter-process
          * communication is needed.
          */
+
+        write_log_request(myrank, nprocs, offset_list, len_list, contig_access_count);
         #if TIME_PROFILING==1
         start_time = MPI_Wtime();
         #endif
