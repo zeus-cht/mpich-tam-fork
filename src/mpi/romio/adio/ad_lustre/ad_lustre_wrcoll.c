@@ -301,7 +301,7 @@ void ADIOI_LUSTRE_WriteStridedColl(ADIO_File fd, const void *buf, int count,
          * communication is needed.
          */
 
-        write_log_request(myrank, nprocs, offset_list, len_list, contig_access_count);
+        //write_log_request(myrank, nprocs, offset_list, len_list, contig_access_count);
         #if TIME_PROFILING==1
         start_time = MPI_Wtime();
         #endif
