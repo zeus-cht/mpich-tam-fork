@@ -274,7 +274,7 @@ void ADIOI_GEN_ReadStridedColl(ADIO_File fd, void *buf, int count,
                           nprocs, myrank, &count_others_req_procs, &others_req);
 */
 #if TIME_PROFILING==1
-    start = MPI_Wtime();
+    start_time = MPI_Wtime();
 #endif
     ADIOI_TAM_Calc_others_req(fd, count_my_req_procs,
                           count_my_req_per_proc, my_req,
