@@ -160,9 +160,9 @@ int read_logs(ADIO_File fd, int myrank){
     fprintf(stream,"%lf,", fd->read_total_inter_time);
 
     fprintf(stream,"%lf,", fd->read_io_time);
-    fprintf(stream,"%lf,", fd->read_read_two_phase);
+    fprintf(stream,"%lf,", fd->read_two_phase);
     fprintf(stream,"%lf,", read_two_phase_max);
-    fprintf(stream,"%lf,", fd->read_total_read_time);
+    fprintf(stream,"%lf,", fd->total_read_time);
     fprintf(stream,"%lf\n", read_total_max);
 
 
