@@ -11,7 +11,7 @@
 
 #if TIME_PROFILING==1
 int write_logs(ADIO_File fd, int myrank){
-    if ( fd->total_write_time == 0 ) {
+    if ( fd->n_coll_write == 0 ) {
         return 0;
     }
     int nprocs;
@@ -90,6 +90,85 @@ int write_logs(ADIO_File fd, int myrank){
     fclose(stream);
     return 0;
 }
+
+int read_logs(ADIO_File fd, int myrank){
+    if ( fd->n_coll_read == 0 ) {
+        return 0;
+    }
+    int nprocs;
+    MPI_Comm_size(fd->comm, &nprocs);
+    char filename[1024];
+    double read_two_phase_max, read_total_max;
+
+    MPI_Reduce(&(fd->read_two_phase), &read_two_phase_max, 1, MPI_DOUBLE, MPI_MAX, 0, fd->comm);
+    MPI_Reduce(&(fd->total_read_time), &read_total_max, 1, MPI_DOUBLE, MPI_MAX, 0, fd->comm);
+    if (myrank) {
+        return 0;
+    }
+    sprintf(filename,"collective_read_results_%d.csv",nprocs);
+    FILE* stream = fopen(filename,"r");
+    if (stream){
+        fclose(stream);
+        stream = fopen(filename,"a");
+
+    } else {
+        stream = fopen(filename,"w");
+        fprintf(stream,"# of processes,");
+        fprintf(stream,"# of global aggregators,");
+        fprintf(stream,"# of local aggregators,");
+        fprintf(stream,"# of collective read,");
+        fprintf(stream,"# of read collective loops,");
+
+        fprintf(stream,"calculate offsets,");
+        fprintf(stream,"calc my request,");
+        fprintf(stream,"calc other request,");
+        fprintf(stream,"read exchange,");
+
+        fprintf(stream,"intra wait meta,");
+        fprintf(stream,"intra wait data,");
+        fprintf(stream,"total intra time,");
+
+        fprintf(stream,"inter metadata,");
+        fprintf(stream,"inter unpack,");
+        fprintf(stream,"inter wait,");
+        fprintf(stream,"total inter time,");
+
+        fprintf(stream,"I/O,");
+        fprintf(stream,"read_two_phase,");
+        fprintf(stream,"read_two_phase_max,");
+        fprintf(stream,"read total,");
+        fprintf(stream,"read total max\n");
+    }
+    fprintf(stream,"%d,", nprocs);
+    fprintf(stream,"%d,", fd->hints->cb_nodes);
+    fprintf(stream,"%d,", fd->local_aggregator_size);
+    fprintf(stream,"%d,", fd->n_coll_read);
+    fprintf(stream,"%d,", fd->ntimes);
+
+    fprintf(stream,"%lf,", fd->read_calc_offset_time);
+    fprintf(stream,"%lf,", fd->read_calc_my_request_time);
+    fprintf(stream,"%lf,", fd->read_calc_other_request_time);
+    fprintf(stream,"%lf,", fd->exchange_read);
+
+    fprintf(stream,"%lf,", fd->read_intra_wait_offset_time);
+    fprintf(stream,"%lf,", fd->read_intra_wait_data_time);
+    fprintf(stream,"%lf,", fd->read_total_intra_time);
+
+    fprintf(stream,"%lf,", fd->read_metadata_exchange_time);
+    fprintf(stream,"%lf,", fd->read_inter_unpack_time);
+    fprintf(stream,"%lf,", fd->read_inter_wait_time);
+    fprintf(stream,"%lf,", fd->read_total_inter_time);
+
+    fprintf(stream,"%lf,", fd->read_io_time);
+    fprintf(stream,"%lf,", fd->read_read_two_phase);
+    fprintf(stream,"%lf,", read_two_phase_max);
+    fprintf(stream,"%lf,", fd->read_total_read_time);
+    fprintf(stream,"%lf\n", read_total_max);
+
+
+    fclose(stream);
+    return 0;
+}
 #endif
 
 void ADIO_Close(ADIO_File fd, int *error_code)
@@ -99,6 +178,7 @@ void ADIO_Close(ADIO_File fd, int *error_code)
     MPI_Comm_rank(fd->comm, &myrank);
     #if TIME_PROFILING==1
     write_logs(fd, myrank);
+    read_logs(fd, myrank);
     #endif
     /*TAM cleanup*/
     if (fd->is_agg){
