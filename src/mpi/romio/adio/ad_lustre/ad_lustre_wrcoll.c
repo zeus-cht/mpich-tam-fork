@@ -988,9 +988,6 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
     }                                                               \
 }
 
-    #if TIME_PROFILING==1
-    total_time = MPI_Wtime();
-    #endif
     if (fd->atomicity) {
         /* atomicity uses traditional two-phase I/O communication strategy */
         /* nreqs is the number of Issend and Irecv to be posted */
@@ -1178,10 +1175,10 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
 #else
             MPI_Waitall(j, req, sts);
 #endif
-        }
         #if TIME_PROFILING==1
         fd->intra_wait_offset_time += MPI_Wtime() - start_time;
         #endif
+        }
         /* End of gathering message size */
         /* 2. Intra-node aggregator of data from nonaggregators to local aggregators */
         j = 0;
@@ -1393,7 +1390,7 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
             }
         }
         #if TIME_PROFILING==1
-        fd->total_inter_time += MPI_Wtime() - start_time;
+        fd->total_inter_time += MPI_Wtime() - total_time;
         #endif
     }
     /* free temporary receive buffer */

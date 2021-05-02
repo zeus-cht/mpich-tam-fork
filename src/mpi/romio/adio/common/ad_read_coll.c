@@ -123,6 +123,10 @@ void ADIOI_GEN_ReadStridedColl(ADIO_File fd, void *buf, int count,
         *fd_end = NULL, *end_offsets = NULL;
     ADIO_Offset *len_list = NULL;
     MPI_Aint *buf_idx = NULL;
+#if TIME_PROFILING==1
+    double start_time, total_time = MPI_Wtime();
+    fd->n_coll_read++;
+#endif
 
 #ifdef HAVE_STATUS_SET_BYTES
     MPI_Count bufsize, size;
@@ -149,11 +153,15 @@ void ADIOI_GEN_ReadStridedColl(ADIO_File fd, void *buf, int count,
 
         /* Note: end_offset points to the last byte-offset that will be accessed.
          * e.g., if start_offset=0 and 100 bytes to be read, end_offset=99 */
-
+#if TIME_PROFILING==1
+        start_time = MPI_Wtime()
+#endif
         ADIOI_Calc_my_off_len(fd, count, datatype, file_ptr_type, offset,
                               &offset_list, &len_list, &start_offset,
                               &end_offset, &contig_access_count);
-
+#if TIME_PROFILING==1
+        fd->read_calc_offset_time += MPI_Wtime() - start_time;
+#endif
 #ifdef RDCOLL_DEBUG
         for (i = 0; i < contig_access_count; i++) {
             DBG_FPRINTF(stderr, "rank %d  off %lld  len %lld\n",
@@ -244,10 +252,15 @@ void ADIOI_GEN_ReadStridedColl(ADIO_File fd, void *buf, int count,
                       min_st_offset, fd_start, fd_end, fd_size,
                       nprocs, &count_my_req_procs, &count_my_req_per_proc, &my_req, &buf_idx);
 */
+#if TIME_PROFILING==1
+    start = MPI_Wtime();
+#endif
     ADIOI_TAM_Calc_my_req(fd, offset_list, len_list, contig_access_count,
                       min_st_offset, fd_start, fd_end, fd_size,
                       nprocs, &count_my_req_procs, &count_my_req_per_proc, &my_req, &buf_idx);
-
+#if TIME_PROFILING==1
+    fd->read_calc_my_request_time = MPI_Wtime() - start_time;
+#endif
     /* perform a collective communication in order to distribute the
      * data calculated above.  fills in the following:
      * count_others_req_procs - number of processes (including this
@@ -260,10 +273,15 @@ void ADIOI_GEN_ReadStridedColl(ADIO_File fd, void *buf, int count,
                           count_my_req_per_proc, my_req,
                           nprocs, myrank, &count_others_req_procs, &others_req);
 */
+#if TIME_PROFILING==1
+    start = MPI_Wtime();
+#endif
     ADIOI_TAM_Calc_others_req(fd, count_my_req_procs,
                           count_my_req_per_proc, my_req,
                           nprocs, myrank, &count_others_req_procs, &others_req);
-
+#if TIME_PROFILING==1
+    fd->read_calc_other_request_time = MPI_Wtime() - start_time;
+#endif
     /* my_req[] and count_my_req_per_proc aren't needed at this point, so
      * let's free the memory
      */
@@ -275,12 +293,16 @@ void ADIOI_GEN_ReadStridedColl(ADIO_File fd, void *buf, int count,
     /* read data in sizes of no more than ADIOI_Coll_bufsize,
      * communicate, and fill user buf.
      */
+#if TIME_PROFILING==1
+    start_time = MPI_Wtime();
+#endif
     ADIOI_Read_and_exch(fd, buf, datatype, nprocs, myrank,
                         others_req, offset_list,
                         len_list, contig_access_count, min_st_offset,
                         fd_size, fd_start, fd_end, buf_idx, error_code);
-
-
+#if TIME_PROFILING==1
+    fd->exchange_read += MPI_Wtime() - start_time;
+#endif
     /* free all memory allocated for collective I/O */
 /*
     ADIOI_Free(others_req[0].offsets);
@@ -296,6 +318,10 @@ void ADIOI_GEN_ReadStridedColl(ADIO_File fd, void *buf, int count,
     ADIOI_Free(st_offsets);
     ADIOI_Free(fd_start);
 
+#if TIME_PROFILING==1
+fd->read_two_phase += MPI_Wtime() - total_time;
+#endif
+
 #ifdef HAVE_STATUS_SET_BYTES
     MPI_Type_size_x(datatype, &size);
     bufsize = size * count;
@@ -306,6 +332,9 @@ void ADIOI_GEN_ReadStridedColl(ADIO_File fd, void *buf, int count,
 #endif
 
     fd->fp_sys_posn = -1;       /* set it to null. */
+    #if TIME_PROFILING==1
+    fd->total_read_time += MPI_Wtime() - total_time;
+    #endif
 }
 
 void ADIOI_Calc_my_off_len(ADIO_File fd, int bufcount, MPI_Datatype
@@ -557,6 +586,10 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
     MPI_Aint buftype_extent, lb;
     int coll_bufsize;
 
+    #if TIME_PROFILING==1
+    double start_time;
+    #endif
+
     *error_code = MPI_SUCCESS;  /* changed below if error */
     /* only I/O errors are currently reported */
 
@@ -641,6 +674,9 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
 
     MPI_Comm_rank(fd->comm, &rank);
 
+    #if TIME_PROFILING==1
+    fd->read_ntimes += ntimes;
+    #endif
     for (m = 0; m < ntimes; m++) {
         /* read buf of size coll_bufsize (or less) */
         /* go through all others_req and check if any are satisfied
@@ -749,8 +785,14 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
         if (flag) {
             ADIOI_Assert(size == (int) size);
             ADIOI_LUSTRE_RD_LOCK_AHEAD(fd, fd->hints->cb_nodes, off, error_code);
+            #if TIME_PROFILING==1
+            start_time = MPI_Wtime();
+            #endif
             ADIO_ReadContig(fd, read_buf + for_curr_iter, (int) size, MPI_BYTE,
                             ADIO_EXPLICIT_OFFSET, off, &status, error_code);
+            #if TIME_PROFILING==1
+            fd->read_io_time += MPI_Wtime() - start_time;
+            #endif
             if (*error_code != MPI_SUCCESS)
                 return;
         }
@@ -846,6 +888,9 @@ void ADIOI_TAM_Read_Kernel(ADIO_File fd, int myrank, char* read_contig_buf, char
     char *contig_buf, *buf_ptr, *tmp_ptr;
     MPI_Request *req = fd->req;
     MPI_Status *sts = fd->sts;
+    #if TIME_PROFILING==1
+    double start_time;
+    #endif
 
     if ( nprocs_send ) {
         sum_send -= send_size[myrank];
@@ -854,10 +899,18 @@ void ADIOI_TAM_Read_Kernel(ADIO_File fd, int myrank, char* read_contig_buf, char
         else
             contig_buf = read_contig_buf;
     }
-
+    #if TIME_PROFILING==1
+    total_time = MPI_Wtime();
+    #endif
     /* Local message directly unpack, otherwise it has to go to a local aggregator then sent back, a waste of bandwidth */
     if ( recv_size[myrank] ) {
+        #if TIME_PROFILING==1
+        start_time = MPI_Wtime();
+        #endif
         ADIOI_TAM_Pack(recv_buf[myrank], send_size, partial_send, others_req, count, start_pos, myrank);
+        #if TIME_PROFILING==1
+        fd->read_inter_unpack_time += MPI_Wtime() - start_time;
+        #endif
     }
 
     /* End of buffer preparation */
@@ -882,12 +935,21 @@ void ADIOI_TAM_Read_Kernel(ADIO_File fd, int myrank, char* read_contig_buf, char
         MPI_Issend(fd->cb_send_size, fd->hints->cb_nodes, MPI_INT, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
     }
     if (j) {
+        #if TIME_PROFILING==1
+        start_time = MPI_Wtime();
+        #endif
 #ifdef MPI_STATUSES_IGNORE
         MPI_Waitall(j, req, MPI_STATUSES_IGNORE);
 #else
         MPI_Waitall(j, req, sts);
 #endif
+        #if TIME_PROFILING==1
+        fd->read_intra_wait_offset_time += MPI_Wtime() - start_time;
+        #endif
     }
+    #if TIME_PROFILING==1
+    fd->read_total_intra_time += MPI_Wtime() - total_time;
+    #endif
     /* End of gathering message size */
 
     /* 2. Inter-node aggregation phase of data from local aggregators to global aggregators.
@@ -1012,15 +1074,27 @@ void ADIOI_TAM_Read_Kernel(ADIO_File fd, int myrank, char* read_contig_buf, char
     }
     
     if (j) {
+        #if TIME_PROFILING==1
+        start_time = MPI_Wtime();
+        #endif
 #ifdef MPI_STATUSES_IGNORE
         MPI_Waitall(j, req, MPI_STATUSES_IGNORE);
 #else
         MPI_Waitall(j, req, sts);
 #endif
+        #if TIME_PROFILING==1
+        fd->read_inter_wait_time += MPI_Wtime() - start_time;
+        #endif
     }
+    #if TIME_PROFILING==1
+    fd->read_total_inter_time += MPI_Wtime() - total_time;
+    #endif
     /* End of inter-node aggregation. */
 
     /* 3. Intra-node aggregator of data from nonaggregators to local aggregators */
+    #if TIME_PROFILING==1
+    total_time = MPI_Wtime();
+    #endif
     j = 0;
     /* Recv a large contiguous array of all data at local process to my local aggregator. */
     if ( fd->my_local_aggregator != myrank && (recv_total_size - recv_size[myrank]) ){
@@ -1051,12 +1125,21 @@ void ADIOI_TAM_Read_Kernel(ADIO_File fd, int myrank, char* read_contig_buf, char
         }
     }
     if (j) {
+        #if TIME_PROFILING==1
+        start_time = MPI_Wtime();
+        #endif
 #ifdef MPI_STATUSES_IGNORE
         MPI_Waitall(j, req, MPI_STATUSES_IGNORE);
 #else
         MPI_Waitall(j, req, sts);
 #endif
+        #if TIME_PROFILING==1
+        fd->read_intra_wait_data_time += MPI_Wtime() - start_time;
+        #endif
     }
+    #if TIME_PROFILING==1
+    fd->read_total_intra_time += MPI_Wtime() - total_time;
+    #endif
 
     /* local aggregators free derived datatypes */
     if ( fd->is_local_aggregator ){
@@ -1091,12 +1174,19 @@ static void ADIOI_TAM_R_Exchange_data(ADIO_File fd, void *buf, char* agg_buf, in
     size_t memLen, recv_total_size;
     MPI_Request *req = NULL;
     MPI_Status *sts = NULL;
+    #if TIME_PROFILING==1
+    double start_time, total_time;
+    #endif
 
 /* exchange send_size info so that each process knows how much to
    receive from whom and how much memory to allocate. */
-
+    #if TIME_PROFILING==1
+    start_time = MPI_Wtime();
+    #endif
     MPI_Alltoall(send_size, 1, MPI_INT, recv_size, 1, MPI_INT, fd->comm);
-
+    #if TIME_PROFILING==1
+    fd->read_metadata_exchange_time += MPI_Wtime() - start_time;
+    #endif
     nprocs_recv = 0;
     nprocs_send = 0;
     memLen = 0;
@@ -1156,7 +1246,14 @@ static void ADIOI_TAM_R_Exchange_data(ADIO_File fd, void *buf, char* agg_buf, in
             }
         }
     }
+    #if TIME_PROFILING==1
+    start_time = MPI_Wtime();
+    #endif
+
     ADIOI_TAM_Read_Kernel(fd, myrank, agg_buf, recv_buf, recv_buf_start, send_size, recv_size, nprocs_send, recv_total_size, sum_send, coll_bufsize, partial_send, others_req, count, start_pos);
+    #if TIME_PROFILING==1
+    fd->total_inter_time += MPI_Wtime() - start_time;
+    #endif
     if (nprocs_recv) {
         if (buftype_is_contig) {
             for (i = 0; i < nprocs; i++) {
