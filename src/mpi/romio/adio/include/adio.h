@@ -297,8 +297,10 @@ typedef struct ADIOI_FileD {
     double write_two_phase;
     double total_write_time;
 
-    double read_metadata_exchange_time;
     double read_calc_offset_time;
+
+    double read_total_inter_time;
+    double read_metadata_exchange_time;
     double read_inter_unpack_time;
     double read_inter_wait_time;
 

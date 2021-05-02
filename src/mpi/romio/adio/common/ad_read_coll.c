@@ -154,7 +154,7 @@ void ADIOI_GEN_ReadStridedColl(ADIO_File fd, void *buf, int count,
         /* Note: end_offset points to the last byte-offset that will be accessed.
          * e.g., if start_offset=0 and 100 bytes to be read, end_offset=99 */
 #if TIME_PROFILING==1
-        start_time = MPI_Wtime()
+        start_time = MPI_Wtime();
 #endif
         ADIOI_Calc_my_off_len(fd, count, datatype, file_ptr_type, offset,
                               &offset_list, &len_list, &start_offset,
@@ -253,7 +253,7 @@ void ADIOI_GEN_ReadStridedColl(ADIO_File fd, void *buf, int count,
                       nprocs, &count_my_req_procs, &count_my_req_per_proc, &my_req, &buf_idx);
 */
 #if TIME_PROFILING==1
-    start = MPI_Wtime();
+    start_time = MPI_Wtime();
 #endif
     ADIOI_TAM_Calc_my_req(fd, offset_list, len_list, contig_access_count,
                       min_st_offset, fd_start, fd_end, fd_size,
@@ -889,7 +889,7 @@ void ADIOI_TAM_Read_Kernel(ADIO_File fd, int myrank, char* read_contig_buf, char
     MPI_Request *req = fd->req;
     MPI_Status *sts = fd->sts;
     #if TIME_PROFILING==1
-    double start_time;
+    double start_time, total_time;
     #endif
 
     if ( nprocs_send ) {
