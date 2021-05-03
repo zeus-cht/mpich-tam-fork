@@ -1175,7 +1175,7 @@ static void ADIOI_TAM_R_Exchange_data(ADIO_File fd, void *buf, char* agg_buf, in
     MPI_Request *req = NULL;
     MPI_Status *sts = NULL;
     #if TIME_PROFILING==1
-    double start_time, total_time;
+    double start_time;
     #endif
 
 /* exchange send_size info so that each process knows how much to
@@ -1246,14 +1246,7 @@ static void ADIOI_TAM_R_Exchange_data(ADIO_File fd, void *buf, char* agg_buf, in
             }
         }
     }
-    #if TIME_PROFILING==1
-    start_time = MPI_Wtime();
-    #endif
-
     ADIOI_TAM_Read_Kernel(fd, myrank, agg_buf, recv_buf, recv_buf_start, send_size, recv_size, nprocs_send, recv_total_size, sum_send, coll_bufsize, partial_send, others_req, count, start_pos);
-    #if TIME_PROFILING==1
-    fd->total_inter_time += MPI_Wtime() - start_time;
-    #endif
     if (nprocs_recv) {
         if (buftype_is_contig) {
             for (i = 0; i < nprocs; i++) {
