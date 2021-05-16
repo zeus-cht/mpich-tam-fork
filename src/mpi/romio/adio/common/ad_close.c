@@ -143,7 +143,7 @@ int read_logs(ADIO_File fd, int myrank){
     fprintf(stream,"%d,", fd->hints->cb_nodes);
     fprintf(stream,"%d,", fd->local_aggregator_size);
     fprintf(stream,"%d,", fd->n_coll_read);
-    fprintf(stream,"%d,", fd->ntimes);
+    fprintf(stream,"%d,", fd->read_ntimes);
 
     fprintf(stream,"%lf,", fd->read_calc_offset_time);
     fprintf(stream,"%lf,", fd->read_calc_my_request_time);
