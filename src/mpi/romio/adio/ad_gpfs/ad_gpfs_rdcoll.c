@@ -141,6 +141,10 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
     int ii;
     ADIO_Offset *len_list = NULL;
     MPI_Aint *buf_idx = NULL;
+#if TIME_PROFILING==1
+    double start_time, total_time = MPI_Wtime();
+    fd->n_coll_read++;
+#endif
 
     GPFSMPIO_T_CIO_RESET(r);
 
@@ -177,10 +181,15 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
          * Note: end_offset points to the last byte-offset to be accessed.
          * e.g., if start_offset=0 and 100 bytes to be read, end_offset=99
          */
+#if TIME_PROFILING==1
+        start_time = MPI_Wtime();
+#endif
         ADIOI_Calc_my_off_len(fd, count, datatype, file_ptr_type, offset,
                               &offset_list, &len_list, &start_offset,
                               &end_offset, &contig_access_count);
-
+#if TIME_PROFILING==1
+        fd->read_calc_offset_time += MPI_Wtime() - start_time;
+#endif
         GPFSMPIO_T_CIO_SET_GET(r, 1, 1, GPFSMPIO_CIO_T_GATHER, GPFSMPIO_CIO_T_LCOMP);
 #ifdef RDCOLL_DEBUG
         for (i = 0; i < contig_access_count; i++) {
@@ -406,6 +415,9 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
      * buf_idx[] - array of locations into which data can be directly moved;
      *     this is only valid for contiguous buffer case
      */
+#if TIME_PROFILING==1
+    start_time = MPI_Wtime();
+#endif
     if (gpfsmpio_tuneblocking)
         ADIOI_GPFS_TAM_Calc_my_req(fd, offset_list, len_list, contig_access_count,
                                min_st_offset, fd_start, fd_end, fd_size,
@@ -415,7 +427,9 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
         ADIOI_Calc_my_req(fd, offset_list, len_list, contig_access_count,
                           min_st_offset, fd_start, fd_end, fd_size,
                           nprocs, &count_my_req_procs, &count_my_req_per_proc, &my_req, &buf_idx);
-
+#if TIME_PROFILING==1
+    fd->read_calc_my_request_time = MPI_Wtime() - start_time;
+#endif
     GPFSMPIO_T_CIO_SET_GET(r, 1, 1, GPFSMPIO_CIO_T_OTHREQ, GPFSMPIO_CIO_T_MYREQ);
 
     /* perform a collective communication in order to distribute the
@@ -425,6 +439,9 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
      * count_others_req_per_proc[] - number of separate contiguous
      *     requests from proc i lie in this process's file domain.
      */
+#if TIME_PROFILING==1
+    start_time = MPI_Wtime();
+#endif
     if (gpfsmpio_tuneblocking)
 /*
         ADIOI_GPFS_Calc_others_req(fd, count_my_req_procs,
@@ -439,7 +456,9 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
         ADIOI_Calc_others_req(fd, count_my_req_procs,
                               count_my_req_per_proc, my_req,
                               nprocs, myrank, &count_others_req_procs, &others_req);
-
+#if TIME_PROFILING==1
+    fd->read_calc_other_request_time = MPI_Wtime() - start_time;
+#endif
     GPFSMPIO_T_CIO_SET_GET(r, 1, 1, GPFSMPIO_CIO_T_DEXCH, GPFSMPIO_CIO_T_OTHREQ);
 
     /* my_req[] and count_my_req_per_proc aren't needed at this point, so
@@ -464,11 +483,16 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
     /* read data in sizes of no more than ADIOI_Coll_bufsize,
      * communicate, and fill user buf.
      */
+#if TIME_PROFILING==1
+    start_time = MPI_Wtime();
+#endif
     ADIOI_Read_and_exch(fd, buf, datatype, nprocs, myrank,
                         others_req, offset_list,
                         len_list, contig_access_count, min_st_offset,
                         fd_size, fd_start, fd_end, buf_idx, error_code);
-
+#if TIME_PROFILING==1
+    fd->exchange_read += MPI_Wtime() - start_time;
+#endif
     GPFSMPIO_T_CIO_SET_GET(r, 0, 1, GPFSMPIO_CIO_LAST, GPFSMPIO_CIO_T_DEXCH);
     GPFSMPIO_T_CIO_SET_GET(r, 0, 1, GPFSMPIO_CIO_LAST, GPFSMPIO_CIO_T_MPIO_CRW);
     GPFSMPIO_T_CIO_REPORT(0, fd, myrank, nprocs);
@@ -497,6 +521,11 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
     ADIOI_Free(st_offsets);
     ADIOI_Free(fd_start);
 
+#if TIME_PROFILING==1
+    fd->read_two_phase += MPI_Wtime() - total_time;
+#endif
+
+
   fn_exit:
 #ifdef HAVE_STATUS_SET_BYTES
     MPI_Type_size_x(datatype, &size);
@@ -508,6 +537,9 @@ void ADIOI_GPFS_ReadStridedColl(ADIO_File fd, void *buf, int count,
 #endif
 
     fd->fp_sys_posn = -1;       /* set it to null. */
+    #if TIME_PROFILING==1
+    fd->total_read_time += MPI_Wtime() - total_time;
+    #endif
 }
 
 static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
@@ -544,6 +576,11 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
 #ifdef RDCOLL_DEBUG
     int iii;
 #endif
+
+    #if TIME_PROFILING==1
+    double start_time;
+    #endif
+
     *error_code = MPI_SUCCESS;  /* changed below if error */
     /* only I/O errors are currently reported */
 
@@ -634,6 +671,9 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
     MPE_Log_event(14, 0, "end computation");
 #endif
 
+    #if TIME_PROFILING==1
+    fd->read_ntimes += ntimes;
+    #endif
     for (m = 0; m < ntimes; m++) {
         /* read buf of size coll_bufsize (or less) */
         /* go through all others_req and check if any are satisfied
@@ -744,6 +784,9 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
 #ifdef PROFILE
         MPE_Log_event(14, 0, "end computation");
 #endif
+        #if TIME_PROFILING==1
+        start_time = MPI_Wtime();
+        #endif
         if (flag) {
             char round[50];
             MPL_snprintf(round, sizeof(round), "two-phase-round=%d", m);
@@ -762,7 +805,9 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
             if (*error_code != MPI_SUCCESS)
                 return;
         }
-
+        #if TIME_PROFILING==1
+        fd->read_io_time += MPI_Wtime() - start_time;
+        #endif
         for_curr_iter = for_next_iter;
 
 #ifdef PROFILE
@@ -911,18 +956,28 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
     MPI_Datatype send_type;
     size_t recv_total_size;
     int sum_send;
-
+    #if TIME_PROFILING==1
+    double start_time;
+    #endif
 
     /* exchange send_size info so that each process knows how much to
      * receive from whom and how much memory to allocate. */
+    #if TIME_PROFILING==1
+    start_time = MPI_Wtime();
+    #endif
     MPI_Alltoall(send_size, 1, MPI_INT, recv_size, 1, MPI_INT, fd->comm);
-
+    #if TIME_PROFILING==1
+    fd->read_metadata_exchange_time += MPI_Wtime() - start_time;
+    #endif
     nprocs_recv = 0;
     sum_send = 0;
     nprocs_send = 0;
     recv_total_size = 0;
     for (i = 0; i < nprocs; i++) {
         if (recv_size[i]) {
+            #if TIME_PROFILING==1
+            fd->total_read_recv_op++;
+            #endif
             nprocs_recv++;
             recv_total_size += recv_size[i];
         }
@@ -1051,7 +1106,9 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
 #endif
 
     /* unpack at the receiver side */
-
+#if TIME_PROFILING==1
+    start = MPI_Wtime();
+#endif
     if (nprocs_recv) {
         if (!buftype_is_contig)
             ADIOI_Fill_user_buffer(fd, buf, flat_buf, recv_buf, offset_list, len_list, (unsigned *) recv_size, requests, statuses,      /* never used inside */
@@ -1066,7 +1123,9 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
                 }
         }
     }
-
+#if TIME_PROFILING==1
+    fd->read_inter_unpack_time += MPI_Wtime() - start;
+#endif
     if (nprocs_recv) {
         ADIOI_Free(recv_buf_start);
         ADIOI_Free(recv_buf);

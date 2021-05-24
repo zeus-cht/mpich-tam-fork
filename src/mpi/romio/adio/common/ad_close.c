@@ -47,6 +47,7 @@ int write_logs(ADIO_File fd, int myrank){
         fprintf(stream,"intra wait data,");
         fprintf(stream,"total intra time,");
 
+        fprintf(stream,"inter metadata,");
         fprintf(stream,"inter heap merge,");
         fprintf(stream,"inter unpack,");
         fprintf(stream,"inter ds,");
@@ -74,6 +75,7 @@ int write_logs(ADIO_File fd, int myrank){
     fprintf(stream,"%lf,", fd->intra_wait_data_time);
     fprintf(stream,"%lf,", fd->total_intra_time);
 
+    fprintf(stream,"%lf,", fd->metadata_exchange_time);
     fprintf(stream,"%lf,", fd->inter_heap_time);
     fprintf(stream,"%lf,", fd->inter_unpack_time);
     fprintf(stream,"%lf,", fd->inter_ds_time);

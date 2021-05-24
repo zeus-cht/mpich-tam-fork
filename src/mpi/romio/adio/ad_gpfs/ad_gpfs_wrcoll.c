@@ -705,6 +705,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
 
     ntimes = (int) ((end_loc - st_loc + coll_bufsize) / coll_bufsize);
 
+
     
     if (fd->is_agg && ((st_loc != -1) || (end_loc != -1)) ) {
         tmp_buf = (char *) ADIOI_Malloc(coll_bufsize * sizeof(char));
@@ -1419,7 +1420,7 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
     #endif
     MPI_Alltoall(recv_size, 1, MPI_INT, send_size, 1, MPI_INT, fd->comm);
     #if TIME_PROFILING==1
-    fd->calc_other_request_time += MPI_Wtime() - start_time;
+    fd->metadata_exchange_time += MPI_Wtime() - start_time;
     #endif
 
     gpfsmpio_prof_cw[GPFSMPIO_CIO_T_DEXCH_RECV_EXCH] += MPI_Wtime() - io_time;
@@ -1481,6 +1482,9 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
 
 
     /* data buffer */
+    #if TIME_PROFILING==1
+    start_time = MPI_Wtime();
+    #endif
     if (buftype_is_contig) {
         for (i = 0; i < nprocs; i++) {
             if (send_size[i]) {
@@ -1498,6 +1502,9 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
                                       send_buf_idx, curr_to_proc, done_to_proc, iter,
                                       buftype_extent);
     }
+    #if TIME_PROFILING==1
+    fd->inter_unpack_time += MPI_Wtime() - start_time;
+    #endif
 
     #if TIME_PROFILING==1
     fd->total_intra_time += MPI_Wtime() - total_time;

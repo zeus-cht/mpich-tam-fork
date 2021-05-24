@@ -281,6 +281,7 @@ typedef struct ADIOI_FileD {
     double calc_offset_time;
 
     double total_inter_time;
+    double metadata_exchange_time;
     double inter_heap_time;
     double inter_unpack_time;
     double inter_ds_time;

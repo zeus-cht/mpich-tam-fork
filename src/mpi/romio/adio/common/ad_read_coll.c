@@ -781,21 +781,20 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
         for (i = 0; i < nprocs; i++)
             if (count[i])
                 flag = 1;
-
+        #if TIME_PROFILING==1
+        start_time = MPI_Wtime();
+        #endif
         if (flag) {
             ADIOI_Assert(size == (int) size);
             ADIOI_LUSTRE_RD_LOCK_AHEAD(fd, fd->hints->cb_nodes, off, error_code);
-            #if TIME_PROFILING==1
-            start_time = MPI_Wtime();
-            #endif
             ADIO_ReadContig(fd, read_buf + for_curr_iter, (int) size, MPI_BYTE,
                             ADIO_EXPLICIT_OFFSET, off, &status, error_code);
-            #if TIME_PROFILING==1
-            fd->read_io_time += MPI_Wtime() - start_time;
-            #endif
             if (*error_code != MPI_SUCCESS)
                 return;
         }
+        #if TIME_PROFILING==1
+        fd->read_io_time += MPI_Wtime() - start_time;
+        #endif
 
         for_curr_iter = for_next_iter;
 /*
@@ -1250,6 +1249,10 @@ static void ADIOI_TAM_R_Exchange_data(ADIO_File fd, void *buf, char* agg_buf, in
         }
     }
     ADIOI_TAM_Read_Kernel(fd, myrank, agg_buf, recv_buf, recv_buf_start, send_size, recv_size, nprocs_send, recv_total_size, sum_send, coll_bufsize, partial_send, others_req, count, start_pos);
+
+    #if TIME_PROFILING==1
+    start_time = MPI_Wtime();
+    #endif
     if (nprocs_recv) {
         if (buftype_is_contig) {
             for (i = 0; i < nprocs; i++) {
@@ -1265,7 +1268,9 @@ static void ADIOI_TAM_R_Exchange_data(ADIO_File fd, void *buf, char* agg_buf, in
                                    min_st_offset, fd_size, fd_start, fd_end, buftype_extent);
         }
     }
-
+    #if TIME_PROFILING==1
+    fd->read_inter_unpack_time += MPI_Wtime() - start;
+    #endif
 
 #if 0
     // We can debug using the following code. This allows us to compare every single byte exchanged between TAM and original ROMIO's implementation.

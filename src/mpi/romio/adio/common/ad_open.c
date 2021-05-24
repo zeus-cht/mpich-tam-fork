@@ -531,6 +531,7 @@ int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, in
     fd->intra_wait_data_time = 0;
 
     fd->total_inter_time = 0;
+    fd->metadata_exchange_time = 0;
     fd->inter_heap_time = 0;
     fd->inter_unpack_time = 0;
     fd->inter_ds_time = 0;

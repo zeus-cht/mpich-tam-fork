@@ -1119,7 +1119,9 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
                 send_buf[myrank] = send_buf_start;
             }
         }
-
+        #if TIME_PROFILING==1
+        start_time = MPI_Wtime();
+        #endif
         if (buftype_is_contig) {
             /* We copy contiguous buftype into a contiguous array. */
             for (i = 0; i < nprocs; i++) {
@@ -1141,14 +1143,11 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
         }
         /* Local message directly unpack, otherwise it has to go to a local aggregator then sent back, a waste of bandwidth */
         if ( send_size[myrank] ) {
-            #if TIME_PROFILING==1
-            start_time = MPI_Wtime();
-            #endif
             MEMCPY_UNPACK(myrank, send_buf[myrank]);
-            #if TIME_PROFILING==1
-            fd->inter_unpack_time += MPI_Wtime() - start_time;
-            #endif
         }
+        #if TIME_PROFILING==1
+        fd->inter_unpack_time += MPI_Wtime() - start_time;
+        #endif
         /* End of buffer preparation */
         /* 1. Local aggregators receive the message size from non-local aggregators
          * We do not want to gather the entire send_size array, since this would be each of length nprocs and does not scale as the number of processes increases.
