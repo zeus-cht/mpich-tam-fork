@@ -130,6 +130,12 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
         MPE_Log_event(13, 0, "start computation");
 #endif
 
+    #if TIME_PROFILING==1
+    double start_time, total_time;
+    total_time = MPI_Wtime();
+    fd->n_coll_write++;
+    #endif
+
     MPI_Comm_size(fd->comm, &nprocs);
     MPI_Comm_rank(fd->comm, &myrank);
 
@@ -149,10 +155,15 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
          * Note: end_offset points to the last byte-offset to be accessed.
          * e.g., if start_offset=0 and 100 bytes to be read, end_offset=99
          */
+        #if TIME_PROFILING==1
+        start_time = MPI_Wtime();
+        #endif
         ADIOI_Calc_my_off_len(fd, count, datatype, file_ptr_type, offset,
                               &offset_list, &len_list, &start_offset,
                               &end_offset, &contig_access_count);
-
+        #if TIME_PROFILING==1
+        fd->calc_offset_time += MPI_Wtime() - start_time;
+        #endif
         GPFSMPIO_T_CIO_SET_GET(w, 1, 1, GPFSMPIO_CIO_T_GATHER, GPFSMPIO_CIO_T_LCOMP);
 
         /* each process communicates its start and end offsets to other
@@ -280,7 +291,9 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
             }
         }
     }
-
+    #if TIME_PROFILING==1
+    start_time = MPI_Wtime();
+    #endif
     if (gpfsmpio_tuneblocking) {
         if ((fd->romio_write_aggmethod == 1) || (fd->romio_write_aggmethod == 2)) {
             ADIOI_GPFS_Calc_file_domains(fd, st_offsets, end_offsets,
@@ -407,7 +420,6 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
 
 /* calculate what portions of the access requests of this process are
    located in what file domains */
-
     if (gpfsmpio_tuneblocking)
         ADIOI_GPFS_Calc_my_req(fd, offset_list, len_list, contig_access_count,
                                min_st_offset, fd_start, fd_end, fd_size,
@@ -417,7 +429,9 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
         ADIOI_Calc_my_req(fd, offset_list, len_list, contig_access_count,
                           min_st_offset, fd_start, fd_end, fd_size,
                           nprocs, &count_my_req_procs, &count_my_req_per_proc, &my_req, &buf_idx);
-
+    #if TIME_PROFILING==1
+    fd->calc_my_request_time += MPI_Wtime() - start_time;
+    #endif
     GPFSMPIO_T_CIO_SET_GET(w, 1, 1, GPFSMPIO_CIO_T_OTHREQ, GPFSMPIO_CIO_T_MYREQ);
 
     /* based on everyone's my_req, calculate what requests of other
@@ -427,6 +441,9 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
      * count_others_req_per_proc[i] indicates how many separate contiguous
      * requests of proc. i lie in this process's file domain.
      */
+    #if TIME_PROFILING==1
+    start_time = MPI_Wtime();
+    #endif
     if (gpfsmpio_tuneblocking)
         ADIOI_GPFS_Calc_others_req(fd, count_my_req_procs,
                                    count_my_req_per_proc, my_req,
@@ -435,7 +452,9 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
         ADIOI_Calc_others_req(fd, count_my_req_procs,
                               count_my_req_per_proc, my_req,
                               nprocs, myrank, &count_others_req_procs, &others_req);
-
+    #if TIME_PROFILING==1
+    fd->calc_other_request_time += MPI_Wtime() - start_time;
+    #endif
     GPFSMPIO_T_CIO_SET_GET(w, 1, 1, GPFSMPIO_CIO_T_DEXCH, GPFSMPIO_CIO_T_OTHREQ);
 
     ADIOI_Free(count_my_req_per_proc);
@@ -451,11 +470,16 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
     ADIOI_Free(my_req);
 
     /* exchange data and write in sizes of no more than coll_bufsize. */
+    #if TIME_PROFILING==1
+    start_time = MPI_Wtime();
+    #endif
     ADIOI_Exch_and_write(fd, buf, datatype, nprocs, myrank,
                          others_req, offset_list,
                          len_list, contig_access_count, min_st_offset,
                          fd_size, fd_start, fd_end, buf_idx, error_code);
-
+    #if TIME_PROFILING==1
+    fd->exchange_write += MPI_Wtime() - start_time;
+    #endif
     GPFSMPIO_T_CIO_SET_GET(w, 0, 1, GPFSMPIO_CIO_LAST, GPFSMPIO_CIO_T_DEXCH);
     GPFSMPIO_T_CIO_SET_GET(w, 0, 1, GPFSMPIO_CIO_LAST, GPFSMPIO_CIO_T_MPIO_CRW);
     GPFSMPIO_T_CIO_REPORT(1, fd, myrank, nprocs);
@@ -478,7 +502,9 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
     ADIOI_Free(offset_list);
     ADIOI_Free(st_offsets);
     ADIOI_Free(fd_start);
-
+    #if TIME_PROFILING==1
+    fd->write_two_phase += MPI_Wtime() - total_time;
+    #endif
   fn_exit:
 #ifdef HAVE_STATUS_SET_BYTES
     if (status) {
@@ -496,6 +522,10 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
 #ifdef AGGREGATION_PROFILE
     MPE_Log_event(5013, 0, NULL);
 #endif
+
+    #if TIME_PROFILING==1
+    fd->total_write_time += MPI_Wtime() - total_time;
+    #endif
 }
 
 static void gpfs_wr_access_start(int fd, ADIO_Offset offset, ADIO_Offset length)
@@ -634,6 +664,9 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
     pthread_t io_thread;
     void *thread_ret;
     ADIOI_IO_ThreadFuncData io_thread_args;
+    #if TIME_PROFILING==1
+    double start_time;
+    #endif
 
     *error_code = MPI_SUCCESS;  /* changed below if error */
     /* only I/O errors are currently reported */
@@ -767,7 +800,9 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
 #ifdef PROFILE
     MPE_Log_event(14, 0, "end computation");
 #endif
-
+    #if TIME_PROFILING==1
+    fd->ntimes += ntimes;
+    #endif
     for (m = 0; m < ntimes; m++) {
         /* go through all others_req and check which will be satisfied
          * by the current write */
@@ -891,7 +926,9 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
         for (i = 0; i < nprocs; i++)
             if (count[i])
                 flag = 1;
-
+        #if TIME_PROFILING==1
+        start_time = MPI_Wtime();
+        #endif
         if (flag) {
             char round[50];
             MPL_snprintf(round, sizeof(round), "two-phase-round=%d", m);
@@ -932,7 +969,9 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
                     return;
             }
         }
-
+        #if TIME_PROFILING==1
+        fd->io_time += MPI_Wtime() - start_time;
+        #endif
         off += size;
         done += size;
     }
@@ -1044,6 +1083,13 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
     int i, j, k;
     char *buf_ptr, *contig_buf, *tmp_ptr;
     MPI_Aint local_data_size;
+    #if TIME_PROFILING==1
+    double start_time, total_time;
+    #endif
+
+    #if TIME_PROFILING==1
+    total_time = MPI_Wtime();
+    #endif
 
     if ( nprocs_recv ) {
         sum_recv -= recv_size[myrank];
@@ -1082,7 +1128,13 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
 
     /* Local message directly unpack, otherwise it has to go to a local aggregator then sent back, a waste of bandwidth */
     if ( send_size[myrank] ) {
+        #if TIME_PROFILING==1
+        start_time = MPI_Wtime();
+        #endif
         ADIOI_TAM_Unpack(send_buf[myrank], recv_size, partial_recv, others_req, count, start_pos, myrank);
+        #if TIME_PROFILING==1
+        fd->inter_unpack_time += MPI_Wtime() - start_time;
+        #endif
     }
     /* End of buffer preparation */
     /* 1. Local aggregators receive the message size from non-local aggregators
@@ -1106,11 +1158,17 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
         MPI_Issend(fd->cb_send_size, fd->hints->cb_nodes, MPI_INT, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
     }
     if (j) {
+        #if TIME_PROFILING==1
+        start_time = MPI_Wtime();
+        #endif
 #ifdef MPI_STATUSES_IGNORE
         MPI_Waitall(j, req, MPI_STATUSES_IGNORE);
 #else
         MPI_Waitall(j, req, sts);
 #endif
+        #if TIME_PROFILING==1
+        fd->intra_wait_offset_time += MPI_Wtime() - start_time;
+        #endif
     }
 
     /* End of gathering message size */
@@ -1164,16 +1222,27 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
         MPI_Issend(send_buf_start, send_total_size - send_size[myrank], MPI_BYTE, fd->my_local_aggregator, myrank + fd->my_local_aggregator, fd->comm, &req[j++]);
     }
     if (j) {
+        #if TIME_PROFILING==1
+        start_time = MPI_Wtime();
+        #endif
 #ifdef MPI_STATUSES_IGNORE
         MPI_Waitall(j, req, MPI_STATUSES_IGNORE);
 #else
         MPI_Waitall(j, req, sts);
 #endif
+        #if TIME_PROFILING==1
+        fd->intra_wait_data_time += MPI_Wtime() - start_time;
+        #endif
     }
-
+    #if TIME_PROFILING==1
+    fd->total_intra_time += MPI_Wtime() - total_time;
+    #endif
     /* End of intra-node aggregation phase */
     /* 3. Inter-node aggregation phase of data from local aggregators to global aggregators.
          * Global aggregators know the data size from all processes in recv_size, so there is no need to exchange data size, this can boost performance. */
+    #if TIME_PROFILING==1
+    total_time = MPI_Wtime();
+    #endif
     j = 0;
     if (nprocs_recv) {
         /* global_recv_size is an array that indicate the sum of data size to be received from local aggregators. */
@@ -1239,21 +1308,33 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
                     if (fd->aggregator_local_ranks[k] == myrank) {
                         continue;
                     }
+                    #if TIME_PROFILING==1
+                    start_time = MPI_Wtime();
+                    #endif
                     if ( k * fd->hints->cb_nodes + i ) {
                         ADIOI_TAM_Unpack(fd->local_buf + fd->local_lens[k * fd->hints->cb_nodes + i - 1], recv_size, partial_recv, others_req, count, start_pos, fd->aggregator_local_ranks[k]);
                     } else {
                         ADIOI_TAM_Unpack(fd->local_buf, recv_size, partial_recv, others_req, count, start_pos, fd->aggregator_local_ranks[k]);
                     }
+                    #if TIME_PROFILING==1
+                    fd->inter_unpack_time += MPI_Wtime() - start_time;
+                    #endif
                 }
             }
         }
     }
     if (j) {
+        #if TIME_PROFILING==1
+        start_time = MPI_Wtime();
+        #endif
 #ifdef MPI_STATUSES_IGNORE
         MPI_Waitall(j, req, MPI_STATUSES_IGNORE);
 #else
         MPI_Waitall(j, req, sts);
 #endif
+        #if TIME_PROFILING==1
+        fd->inter_wait_time += MPI_Wtime() - start_time;
+        #endif
     }
     /* End of inter-node aggregation, no more MPI communications. */
 
@@ -1279,13 +1360,22 @@ static void ADIOI_TAM_Write_Kernel(ADIO_File fd, int myrank, char* tmp_buf, char
                 for ( k = 0; k < fd->local_aggregator_domain_size[i]; ++k ) {
                     /* Local data has been unpacked at the beginning, nothing should be received from its local aggregator. */
                     if (fd->local_aggregator_domain[i][k] != myrank) {
+                        #if TIME_PROFILING==1
+                        start_time = MPI_Wtime();
+                        #endif
                         ADIOI_TAM_Unpack((char *) buf_ptr, recv_size, partial_recv, others_req, count, start_pos, fd->local_aggregator_domain[i][k]);
+                        #if TIME_PROFILING==1
+                        fd->inter_unpack_time += MPI_Wtime() - start_time;
+                        #endif
                         buf_ptr += recv_size[fd->local_aggregator_domain[i][k]];
                     }
                 }
             }
         }
     }
+    #if TIME_PROFILING==1
+    fd->total_inter_time += MPI_Wtime() - total_time;
+    #endif
     /* free temporary receive buffer */
 
     if (nprocs_recv && sum_recv > coll_bufsize) {
@@ -1315,10 +1405,21 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
     int sum_recv;
     size_t send_total_size;
 
+    #if TIME_PROFILING==1
+    double start_time, total_time;
+    #endif
+
     io_time = MPI_Wtime();
     /* exchange recv_size info so that each process knows how much to
      * send to whom. */
+
+    #if TIME_PROFILING==1
+    start_time = MPI_Wtime();
+    #endif
     MPI_Alltoall(recv_size, 1, MPI_INT, send_size, 1, MPI_INT, fd->comm);
+    #if TIME_PROFILING==1
+    fd->calc_other_request_time += MPI_Wtime() - start_time;
+    #endif
 
     gpfsmpio_prof_cw[GPFSMPIO_CIO_T_DEXCH_RECV_EXCH] += MPI_Wtime() - io_time;
     io_time = MPI_Wtime();
@@ -1338,7 +1439,9 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
         }
     }
 
-
+    #if TIME_PROFILING==1
+    total_time = MPI_Wtime();
+    #endif
     /* We always put send_buf[myrank] to the end of the contiguous array because we do not want to break contiguous array into two parts after removing it
          * send_buf[myrank] is unpacked directly without participating in communication. */
     if (nprocs_send) {
@@ -1392,7 +1495,9 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
                                       buftype_extent);
     }
 
-
+    #if TIME_PROFILING==1
+    fd->total_intra_time += MPI_Wtime() - total_time;
+    #endif
 
     gpfsmpio_prof_cw[GPFSMPIO_CIO_T_DEXCH_SETUP] += MPI_Wtime() - io_time;
 
