@@ -321,6 +321,9 @@ typedef struct ADIOI_FileD {
     int n_coll_read;
     int n_coll_write;
 
+    int total_recv_op;
+    int total_read_recv_op;
+
     #endif
 } ADIOI_FileD;
 
