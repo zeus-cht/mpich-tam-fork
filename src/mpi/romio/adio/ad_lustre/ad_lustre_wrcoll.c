@@ -870,8 +870,12 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
     for (i = 0; i < nprocs; i++) {
         *srt_num += recv_count[i];
         sum_recv += recv_size[i];
-        if (recv_size[i])
+        if (recv_size[i]) {
             nprocs_recv++;
+            #if TIME_PROFILING==1
+            fd->total_recv_op++;
+            #endif
+        }
         if (send_size[i])
             nprocs_send++;
     }

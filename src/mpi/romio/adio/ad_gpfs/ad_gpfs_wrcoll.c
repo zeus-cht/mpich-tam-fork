@@ -704,6 +704,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
 /* ntimes=ceiling_div(end_loc - st_loc + 1, coll_bufsize)*/
 
     ntimes = (int) ((end_loc - st_loc + coll_bufsize) / coll_bufsize);
+
     
     if (fd->is_agg && ((st_loc != -1) || (end_loc != -1)) ) {
         tmp_buf = (char *) ADIOI_Malloc(coll_bufsize * sizeof(char));
@@ -1432,6 +1433,9 @@ static void ADIOI_TAM_W_Exchange_data_alltoallv(ADIO_File fd, const void *buf, c
         if (recv_size[i]) {
             nprocs_recv++;
             sum_recv += recv_size[i];
+            #if TIME_PROFILING==1
+            fd->total_recv_op++;
+            #endif
         }
         if (send_size[i]) {
             nprocs_send++;

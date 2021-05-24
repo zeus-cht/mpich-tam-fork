@@ -319,7 +319,7 @@ void ADIOI_GEN_ReadStridedColl(ADIO_File fd, void *buf, int count,
     ADIOI_Free(fd_start);
 
 #if TIME_PROFILING==1
-fd->read_two_phase += MPI_Wtime() - total_time;
+    fd->read_two_phase += MPI_Wtime() - total_time;
 #endif
 
 #ifdef HAVE_STATUS_SET_BYTES
@@ -1194,6 +1194,9 @@ static void ADIOI_TAM_R_Exchange_data(ADIO_File fd, void *buf, char* agg_buf, in
     for (i = 0; i < nprocs; i++) {
         memLen += recv_size[i];
         if (recv_size[i]) {
+            #if TIME_PROFILING==1
+            fd->total_read_recv_op++;
+            #endif
             nprocs_recv++;
         }
         if (send_size[i]) {

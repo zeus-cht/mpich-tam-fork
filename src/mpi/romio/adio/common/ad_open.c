@@ -538,10 +538,10 @@ int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, in
 
     fd->io_time = 0;
     fd->write_two_phase = 0;
+    fd->total_recv_op = 0;
     fd->total_write_time = 0;
 
     fd->read_calc_offset_time = 0;
-
     fd->read_calc_my_request_time = 0;
     fd->read_calc_other_request_time = 0;
 
@@ -555,6 +555,8 @@ int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, in
     fd->read_inter_wait_time = 0;
 
     fd->read_io_time = 0;
+    fd->read_two_phase = 0;
+    fd->total_read_recv_op = 0;
     fd->total_read_time = 0;
 
     fd->ntimes = 0;
