@@ -1269,7 +1269,7 @@ static void ADIOI_TAM_R_Exchange_data(ADIO_File fd, void *buf, char* agg_buf, in
         }
     }
     #if TIME_PROFILING==1
-    fd->read_inter_unpack_time += MPI_Wtime() - start;
+    fd->read_inter_unpack_time += MPI_Wtime() - start_time;
     #endif
 
 #if 0

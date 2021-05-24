@@ -1107,7 +1107,7 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
 
     /* unpack at the receiver side */
 #if TIME_PROFILING==1
-    start = MPI_Wtime();
+    start_time = MPI_Wtime();
 #endif
     if (nprocs_recv) {
         if (!buftype_is_contig)
@@ -1124,7 +1124,7 @@ static void ADIOI_TAM_R_Exchange_data_alltoallv(ADIO_File fd, void *buf, char* r
         }
     }
 #if TIME_PROFILING==1
-    fd->read_inter_unpack_time += MPI_Wtime() - start;
+    fd->read_inter_unpack_time += MPI_Wtime() - start_time;
 #endif
     if (nprocs_recv) {
         ADIOI_Free(recv_buf_start);
