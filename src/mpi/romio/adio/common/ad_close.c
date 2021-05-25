@@ -37,6 +37,7 @@ int write_logs(ADIO_File fd, int myrank){
         fprintf(stream,"# of local aggregators,");
         fprintf(stream,"# of collective write,");
         fprintf(stream,"# of write collective loops,");
+        fprintf(stream,"# of write comms,");
 
         fprintf(stream,"calculate offsets,");
         fprintf(stream,"calc my request,");
@@ -65,6 +66,7 @@ int write_logs(ADIO_File fd, int myrank){
     fprintf(stream,"%d,", fd->local_aggregator_size);
     fprintf(stream,"%d,", fd->n_coll_write);
     fprintf(stream,"%d,", fd->ntimes);
+    fprintf(stream,"%d,", fd->total_recv_op);
 
     fprintf(stream,"%lf,", fd->calc_offset_time);
     fprintf(stream,"%lf,", fd->calc_my_request_time);
@@ -120,6 +122,7 @@ int read_logs(ADIO_File fd, int myrank){
         fprintf(stream,"# of local aggregators,");
         fprintf(stream,"# of collective read,");
         fprintf(stream,"# of read collective loops,");
+        fprintf(stream,"# of read comms,");
 
         fprintf(stream,"calculate offsets,");
         fprintf(stream,"calc my request,");
@@ -146,6 +149,7 @@ int read_logs(ADIO_File fd, int myrank){
     fprintf(stream,"%d,", fd->local_aggregator_size);
     fprintf(stream,"%d,", fd->n_coll_read);
     fprintf(stream,"%d,", fd->read_ntimes);
+    fprintf(stream,"%d,", fd->total_read_recv_op);
 
     fprintf(stream,"%lf,", fd->read_calc_offset_time);
     fprintf(stream,"%lf,", fd->read_calc_my_request_time);
