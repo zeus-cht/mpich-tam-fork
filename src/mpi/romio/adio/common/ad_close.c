@@ -18,7 +18,9 @@ int write_logs(ADIO_File fd, int myrank){
     MPI_Comm_size(fd->comm, &nprocs);
     char filename[1024];
     double write_two_phase_max, write_total_max;
+    int total_recv_comms;
 
+    MPI_Reduce(&(fd->total_recv_op), &total_recv_comms, 1, MPI_INT, MPI_MAX, 0, fd->comm);
     MPI_Reduce(&(fd->write_two_phase), &write_two_phase_max, 1, MPI_DOUBLE, MPI_MAX, 0, fd->comm);
     MPI_Reduce(&(fd->total_write_time), &write_total_max, 1, MPI_DOUBLE, MPI_MAX, 0, fd->comm);
     if (myrank) {
@@ -66,7 +68,7 @@ int write_logs(ADIO_File fd, int myrank){
     fprintf(stream,"%d,", fd->local_aggregator_size);
     fprintf(stream,"%d,", fd->n_coll_write);
     fprintf(stream,"%d,", fd->ntimes);
-    fprintf(stream,"%d,", fd->total_recv_op);
+    fprintf(stream,"%d,", total_recv_comms);
 
     fprintf(stream,"%lf,", fd->calc_offset_time);
     fprintf(stream,"%lf,", fd->calc_my_request_time);
@@ -103,9 +105,11 @@ int read_logs(ADIO_File fd, int myrank){
     MPI_Comm_size(fd->comm, &nprocs);
     char filename[1024];
     double read_two_phase_max, read_total_max;
+    int total_recv_comms;
 
     MPI_Reduce(&(fd->read_two_phase), &read_two_phase_max, 1, MPI_DOUBLE, MPI_MAX, 0, fd->comm);
     MPI_Reduce(&(fd->total_read_time), &read_total_max, 1, MPI_DOUBLE, MPI_MAX, 0, fd->comm);
+    MPI_Reduce(&(fd->total_read_recv_op), &total_recv_comms, 1, MPI_INT, MPI_MAX, 0, fd->comm);
     if (myrank) {
         return 0;
     }
@@ -149,7 +153,7 @@ int read_logs(ADIO_File fd, int myrank){
     fprintf(stream,"%d,", fd->local_aggregator_size);
     fprintf(stream,"%d,", fd->n_coll_read);
     fprintf(stream,"%d,", fd->read_ntimes);
-    fprintf(stream,"%d,", fd->total_read_recv_op);
+    fprintf(stream,"%d,", total_recv_comms);
 
     fprintf(stream,"%lf,", fd->read_calc_offset_time);
     fprintf(stream,"%lf,", fd->read_calc_my_request_time);
