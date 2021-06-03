@@ -473,10 +473,12 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
     #if TIME_PROFILING==1
     start_time = MPI_Wtime();
     #endif
+/*
     ADIOI_Exch_and_write(fd, buf, datatype, nprocs, myrank,
                          others_req, offset_list,
                          len_list, contig_access_count, min_st_offset,
                          fd_size, fd_start, fd_end, buf_idx, error_code);
+*/
     #if TIME_PROFILING==1
     fd->exchange_write += MPI_Wtime() - start_time;
     #endif
@@ -704,6 +706,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
 /* ntimes=ceiling_div(end_loc - st_loc + 1, coll_bufsize)*/
 
     ntimes = (int) ((end_loc - st_loc + coll_bufsize) / coll_bufsize);
+
 
 
     
