@@ -806,7 +806,7 @@ static void ADIOI_Exch_and_write(ADIO_File fd, const void *buf, MPI_Datatype
     MPE_Log_event(14, 0, "end computation");
 #endif
     #if TIME_PROFILING==1
-    fd->ntimes += ntimes;
+    fd->ntimes += max_ntimes;
     #endif
     for (m = 0; m < ntimes; m++) {
         /* go through all others_req and check which will be satisfied
