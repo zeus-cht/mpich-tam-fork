@@ -713,6 +713,10 @@ ADIO_File ADIO_Open(MPI_Comm orig_comm,
         ADIOI_Info_set(ADIOI_syshints, "cb_config_list", p);
     }
 
+    p=getenv("ROMIO_cb_buffer_size");
+    if (p!=NULL){
+        ADIOI_Info_set(ADIOI_syshints, "cb_buffer_size", p);
+    }
 
     ADIOI_incorporate_system_hints(info, ADIOI_syshints, &dupinfo);
     ADIO_SetInfo(fd, dupinfo, &err);
