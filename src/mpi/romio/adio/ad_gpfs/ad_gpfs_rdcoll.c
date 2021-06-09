@@ -672,7 +672,7 @@ static void ADIOI_Read_and_exch(ADIO_File fd, void *buf, MPI_Datatype
 #endif
 
     #if TIME_PROFILING==1
-    fd->read_ntimes += ntimes;
+    fd->read_ntimes += max_ntimes;
     #endif
     for (m = 0; m < ntimes; m++) {
         /* read buf of size coll_bufsize (or less) */
