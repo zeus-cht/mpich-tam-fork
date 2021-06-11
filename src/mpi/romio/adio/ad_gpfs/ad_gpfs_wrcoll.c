@@ -421,7 +421,13 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
 /* calculate what portions of the access requests of this process are
    located in what file domains */
     if (gpfsmpio_tuneblocking)
+/*
         ADIOI_GPFS_Calc_my_req(fd, offset_list, len_list, contig_access_count,
+                               min_st_offset, fd_start, fd_end, fd_size,
+                               nprocs, &count_my_req_procs,
+                               &count_my_req_per_proc, &my_req, &buf_idx);
+*/
+        ADIOI_GPFS_TAM_Calc_my_req(fd, offset_list, len_list, contig_access_count,
                                min_st_offset, fd_start, fd_end, fd_size,
                                nprocs, &count_my_req_procs,
                                &count_my_req_per_proc, &my_req, &buf_idx);
@@ -445,7 +451,12 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
     start_time = MPI_Wtime();
     #endif
     if (gpfsmpio_tuneblocking)
+/*
         ADIOI_GPFS_Calc_others_req(fd, count_my_req_procs,
+                                   count_my_req_per_proc, my_req,
+                                   nprocs, myrank, &count_others_req_procs, &others_req);
+*/
+        ADIOI_TAM_Calc_others_req(fd, count_my_req_procs,
                                    count_my_req_per_proc, my_req,
                                    nprocs, myrank, &count_others_req_procs, &others_req);
     else
