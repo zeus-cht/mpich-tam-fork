@@ -499,12 +499,16 @@ void ADIOI_GPFS_WriteStridedColl(ADIO_File fd, const void *buf, int count,
 
     /* free all memory allocated for collective I/O */
     if (gpfsmpio_tuneblocking) {
+        ADIOI_Free(fd->other_req_buf);
+        ADIOI_Free(fd->other_req_mem);
+/*
         for ( i = 0; i < nprocs; ++i ) {
             if ( others_req[i].count ) {
                 ADIOI_Free(others_req[i].offsets);
                 ADIOI_Free(others_req[i].mem_ptrs);
             }
         }
+*/
     } else {
         ADIOI_Free(others_req[0].offsets);
         ADIOI_Free(others_req[0].mem_ptrs);
