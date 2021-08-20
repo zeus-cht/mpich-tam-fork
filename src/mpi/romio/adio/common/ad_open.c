@@ -565,6 +565,8 @@ int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, in
 
     fd->n_coll_read = 0;
     fd->n_coll_write = 0;
+
+    fd->noncontig_count = 0;
     #endif
 
     return 0;

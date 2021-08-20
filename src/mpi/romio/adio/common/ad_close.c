@@ -19,13 +19,16 @@ int write_logs(ADIO_File fd, int myrank){
     char filename[1024];
     double write_two_phase_max, write_total_max;
     int total_recv_comms;
+    MPI_Aint total_noncontig_count;
 
     MPI_Reduce(&(fd->total_recv_op), &total_recv_comms, 1, MPI_INT, MPI_SUM, 0, fd->comm);
     MPI_Reduce(&(fd->write_two_phase), &write_two_phase_max, 1, MPI_DOUBLE, MPI_MAX, 0, fd->comm);
     MPI_Reduce(&(fd->total_write_time), &write_total_max, 1, MPI_DOUBLE, MPI_MAX, 0, fd->comm);
+    MPI_Reduce(&(fd->noncontig_count), &total_noncontig_count, 1, MPI_AINT, MPI_SUM, 0, fd->comm);
     if (myrank) {
         return 0;
     }
+    printf("total_noncontig_count=%lld\n", (long long int) total_noncontig_count);
     sprintf(filename,"collective_write_results_%d.csv",nprocs);
     FILE* stream = fopen(filename,"r");
     if (stream){

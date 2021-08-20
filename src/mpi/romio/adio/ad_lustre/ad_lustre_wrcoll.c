@@ -869,6 +869,7 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
     nprocs_send = 0;
     for (i = 0; i < nprocs; i++) {
         *srt_num += recv_count[i];
+        fd->noncontig_count += recv_count[i];
         sum_recv += recv_size[i];
         if (recv_size[i]) {
             nprocs_recv++;
@@ -1544,6 +1545,7 @@ static void ADIOI_LUSTRE_Fill_send_buffer_no_send(ADIO_File fd, const void *buf,
     }
     for (i = 0; i < nprocs; i++)
         if (send_size[i])
+
             sent_to_proc[i] = curr_to_proc[i];
 }
 

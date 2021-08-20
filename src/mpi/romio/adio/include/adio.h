@@ -325,6 +325,7 @@ typedef struct ADIOI_FileD {
     int total_recv_op;
     int total_read_recv_op;
 
+    MPI_Aint noncontig_count;
     #endif
 } ADIOI_FileD;
 
