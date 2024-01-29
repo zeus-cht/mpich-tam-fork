@@ -7,7 +7,7 @@
 
 #include "adio.h"
 #include "adio_extern.h"
-#include "adio_cb_config_list.h"
+#include "adio_cb_config_list.h"    // 获取节点名称 ADIOI_cb_gather_name_array
 
 #include "mpio.h"
 
@@ -51,16 +51,18 @@ int reorder_ranklist(int *process_node_list, int *ranklist, int cb_nodes, int nr
     char *p;
 
     for ( i = 0; i < cb_nodes; i++ ){
-        node_size[process_node_list[ranklist[i]]]++;
+        node_size[process_node_list[ranklist[i]]]++;    // 节点对应的全局聚合器个数
     }
     for ( i = 0; i < nrecvs; i++ ){
-        node_ranks[i] = (int*) ADIOI_Malloc(sizeof(int)*(node_size[i]+1));
+        node_ranks[i] = (int*) ADIOI_Malloc(sizeof(int)*(node_size[i]+1));  // 每个节点上的全局聚合器列表
     }
     for ( i = 0; i < cb_nodes; i++ ){
         j = process_node_list[ranklist[i]];
         node_ranks[j][node_index[j]] = ranklist[i];
-        node_index[j]++;
+        node_index[j]++;    // 第j个节点的全局聚合器下标 最终等于个数
     }
+    // 轮询重新排列全局聚合器，第一个节点的第一个全局聚合器，第二个节点的第一个全局聚合器...
+    // todo 有什么意义？ 全局聚合器的顺序有影响吗？
     memset( node_index, 0, sizeof(int) * nrecvs );
     j = 0;
     for ( i = 0; i < cb_nodes; i++ ){
@@ -77,6 +79,7 @@ int reorder_ranklist(int *process_node_list, int *ranklist, int cb_nodes, int nr
             j=0;
         }
     }
+    // 设置全局聚合器
     p = value;
     /* the (by MPI rank) list of aggregators can be larger than
      * MPI_MAX_INFO_VAL, so we will simply truncate when we reach capacity. I
@@ -175,7 +178,7 @@ int gather_node_information(int rank, int nprocs,int *nrecvs, int **process_node
        4. global_aggregator_size: The value of cb_nodes, which is the global aggregator size.
        5. global_aggregators: Original list of global aggregators
   Output:
-       1. global_aggregators_new: Reordered global aggregators.
+       1. global_aggregators_new: Reordered global aggregators. 调用完此函数之后ranklist会指向此
 */
 int spreadout_global_aggregators(int rank, int *process_node_list, int nprocs, int nrecvs, int global_aggregator_size, int* global_aggregators, int** global_aggregators_new){
     int i, j, k, local_node_process_size, local_node_aggregator_size, remainder, temp1, temp2;
@@ -256,7 +259,7 @@ int aggregator_meta_information(int rank, int *process_node_list, int nprocs, in
     check_global_aggregators = (int*) ADIOI_Calloc(nprocs,sizeof(int));
     check_local_aggregators = (int*) ADIOI_Calloc(nprocs,sizeof(int));
     nprocs_aggregator[0] = 0;
-    local_aggregator_size[0] = 0;
+    local_aggregator_size[0] = 0;   // why [0]? 
     is_aggregator_new[0] = 0;
     /* Check if a process is an aggregator*/
     for ( i = 0; i < nprocs; ++i ){
@@ -267,8 +270,9 @@ int aggregator_meta_information(int rank, int *process_node_list, int nprocs, in
             }
         }
     }
+    // 计算本地聚合器 应该 有多少个
     for ( i = 0; i < nrecvs; ++i ){
-        local_node_process_size = 0;
+        local_node_process_size = 0;    // 当前节点上的进程数
         /* Get process on the ith node and identify aggregators*/
         for ( j = 0; j < nprocs; ++j ){
             if ( process_node_list[j] == i ) {
@@ -276,24 +280,25 @@ int aggregator_meta_information(int rank, int *process_node_list, int nprocs, in
             }
         }
         if ( co > local_node_process_size ){
-            local_aggregator_size[0] += local_node_process_size;
+            local_aggregator_size[0] += local_node_process_size;    // todo 如果一直是这个分支，那相当于进程数 == 本地聚合器个数，co很重要
         }else{
-            local_aggregator_size[0] += co;
+            local_aggregator_size[0] += co; // co = ROMIO_LOCAL_AGGREGATOR_CO 
         }
     }
     local_aggregators[0] = (int*) ADIOI_Malloc(local_aggregator_size[0]*sizeof(int));
     ptr = local_aggregators[0];
     /* For every node*/
     for ( i = 0; i < nrecvs; ++i ){
-        local_node_process_size = 0;
+        local_node_process_size = 0;    // 当前节点上的进程数
         local_node_aggregator_size = 0;
         /* Get process on the ith node and identify aggregators*/
         for ( j = 0; j < nprocs; ++j ){
-            if ( process_node_list[j] == i ) {
-                temp_local_ranks[local_node_process_size] = j;
+            // 进程j
+            if ( process_node_list[j] == i ) {  // 进程j在节点i上
+                temp_local_ranks[local_node_process_size] = j;  // 当前节点的进程号列表
                 local_node_process_size++;
-                if ( check_global_aggregators[j] ) {
-                    local_node_aggregators[local_node_aggregator_size] = j;
+                if ( check_global_aggregators[j] ) {    // 如果j是全局聚合器
+                    local_node_aggregators[local_node_aggregator_size] = j; // 当前节点的全局聚合器列表
                     local_node_aggregator_size++;
                 }
             }
@@ -304,7 +309,7 @@ int aggregator_meta_information(int rank, int *process_node_list, int nprocs, in
         } else{
             co2 = co;
         }
-        if (mode){
+        if (mode){  // todo : this branch never run, another branch boost performance? 聚集式的，但是全局一定是本地
             /*Mode 1: Build local aggregators on top of global aggregators*/
             if ( co2 > local_node_aggregator_size ){
                 temp2 = local_node_aggregator_size;
@@ -318,7 +323,7 @@ int aggregator_meta_information(int rank, int *process_node_list, int nprocs, in
                             break;
                         }
                     }
-                    if (test){
+                    if (test){  // 不重复，进程temp_local_ranks[j]要加入本地进程
                         local_node_aggregators[local_node_aggregator_size] = temp_local_ranks[j];
                         local_node_aggregator_size++;
                     }
@@ -331,25 +336,26 @@ int aggregator_meta_information(int rank, int *process_node_list, int nprocs, in
             }
         } else{
             /* Mode 0: Spread out local aggregators across the local node process list. */
+            // 均匀分配，全局聚合器不一定是本地聚合器
             local_node_aggregator_size = co2;
             remainder = local_node_process_size % local_node_aggregator_size;
-            temp1 = (local_node_process_size + local_node_aggregator_size - 1) / local_node_aggregator_size;
-            temp2 = local_node_process_size / local_node_aggregator_size;
+            temp1 = (local_node_process_size + local_node_aggregator_size - 1) / local_node_aggregator_size;    // 上取整
+            temp2 = local_node_process_size / local_node_aggregator_size;   // 下取整
             for ( j = 0; j < local_node_aggregator_size; ++j ){
                 if( j < remainder ){
-                    local_node_aggregators[j] = temp_local_ranks[temp1 * j];
+                    local_node_aggregators[j] = temp_local_ranks[temp1 * j];    // 一组temp1个
                 } else{
-                    local_node_aggregators[j] = temp_local_ranks[temp1 * remainder + temp2 * ( j - remainder )];
+                    local_node_aggregators[j] = temp_local_ranks[temp1 * remainder + temp2 * ( j - remainder )];    // 一组temp2个
                 }
             }
         }
 
-        memcpy(ptr, local_node_aggregators, sizeof(int) * local_node_aggregator_size);
+        memcpy(ptr, local_node_aggregators, sizeof(int) * local_node_aggregator_size);  // todo why?
         ptr += local_node_aggregator_size;
         for ( j = 0; j < local_node_aggregator_size; ++j ){
             check_local_aggregators[local_node_aggregators[j]] = 1;
             if (rank == local_node_aggregators[j]){
-                is_aggregator_new[0] = 1;
+                is_aggregator_new[0] = 1;   // fd->is_local_aggregator = 1
             }
         }
         if ( local_node_aggregator_size ){
@@ -372,19 +378,23 @@ int aggregator_meta_information(int rank, int *process_node_list, int nprocs, in
                 }
                 /*
                    The algorithm is as the following.
-                   Scan the local process list, if local process is a local aggregator and it is not currently iterated (local_node_aggregators[j]), simply jump. This local aggregator is handled in another j loop (by searching or passing)
+                   Scan the local process list, if local process is a local aggregator and it is not currently iterated (local_node_aggregators[j]), simply jump. 
+                   This local aggregator is handled in another j loop (by searching or passing)
                    If it is current local aggregator, just add to the list. For non-aggregators, just keep adding them into the list until the entire group is filled.
                    When the group is one element away from being filled and the current local aggregator has not been added. We directly add it.
                 */
                 for ( k = 0; k < temp3; ++k ){
                     if ( k == temp3 -1 && test ){
+                        // 如果当前的本地聚合器还没加，并且只剩一个位置，则直接加入，结束循环
                         process_aggregator_list[ local_node_aggregators[j] ] = local_node_aggregators[j];
                         break;
                     }
                     while ( (check_local_aggregators[temp_local_ranks[base]] && temp_local_ranks[base] != local_node_aggregators[j]) ){
+                        // 如果当前进程是本地聚合器，并且不是当前要遍历的本地聚合器，跳过
                         base++;
                     }
                     if (check_local_aggregators[temp_local_ranks[base]]){
+                        // 如果当前进程是本地聚合器，并且是当前要遍历的聚合器，则加进去，并且以后不会再加了
                         test = 0;
                     }
                     process_aggregator_list[ temp_local_ranks[base] ] = local_node_aggregators[j];
@@ -479,7 +489,7 @@ int set_tam_hints(ADIO_File fd, int rank, int *process_node_list, int nrecvs, in
 
     if (fd->is_local_aggregator||fd->is_agg){
         i = 0;
-        if (fd->is_agg){
+        if (fd->is_agg){    // 是全局聚合器
             /* Workout my global aggregator index, works the same as cb_node_index */
             for ( i = 0; i < fd->hints->cb_nodes; ++i ) {
                 if (fd->hints->ranklist[i] == rank) {

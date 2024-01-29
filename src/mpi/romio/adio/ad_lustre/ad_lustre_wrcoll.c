@@ -988,7 +988,7 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
         /* We always put send_buf[myrank] to the end of the contiguous array because we do not want to break contiguous array into two parts after removing it
          * send_buf[myrank] is unpacked directly without participating in communication. */
         send_buf = (char **) ADIOI_Malloc(nprocs * sizeof(char *));
-        send_buf_start = (char *) ADIOI_Malloc(send_total_size+1);
+        send_buf_start = (char *) ADIOI_Malloc(send_total_size+1);  // 返回结果不是0，而是分配的地址
         if (myrank != fd->hints->ranklist[0]) {
             /* nprocs >=2 for this case, we are pretty safe to put send_buf[myrank] into the end. */
             send_buf[fd->hints->ranklist[0]] = send_buf_start;
@@ -1164,17 +1164,17 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
         /* Local aggregators post send requests to global aggregators. 
          * We use derived datatype to wrap the buffer */
         if (fd->is_local_aggregator) {
-            for ( i = 0; i < fd->hints->cb_nodes; ++i ) {
+            for ( i = 0; i < fd->hints->cb_nodes; ++i ) {   // 给 cb_nodes 个全局聚合器发
                 fd->new_types[i] = MPI_BYTE;
                 /* Do not do self-send */
                 if (fd->hints->ranklist[i] != myrank) {
                     local_data_size = 0;
                     /* Interleave through local buffer to wrap messages to the same destination with derived dataset. */
                     for ( k = 0; k < fd->nprocs_aggregator; ++k ) {
-                        if (k * fd->hints->cb_nodes + i) {
+                        if (k * fd->hints->cb_nodes + i) {  // // 如果不是每个本地聚合器的第一个数据块
                             fd->array_of_blocklengths[k] = fd->local_lens[k * fd->hints->cb_nodes + i] - fd->local_lens[k * fd->hints->cb_nodes + i - 1];
                             MPI_Address(fd->local_buf + fd->local_lens[k * fd->hints->cb_nodes + i - 1], fd->array_of_displacements + k);
-                        } else {
+                        } else {    // // 如果是每个本地聚合器的第一个数据块
                             fd->array_of_blocklengths[0] = fd->local_lens[0];
                             MPI_Address(fd->local_buf, fd->array_of_displacements);
                         }
@@ -1225,13 +1225,13 @@ static void ADIOI_LUSTRE_W_Exchange_data(ADIO_File fd, const void *buf,
          * The ranks proxied by local aggregators may not be ordered from rank 0 to p-1, so we need to be careful by checking their domain. */
         if (nprocs_recv) {
             buf_ptr = contig_buf;
-            for ( i = 0; i < fd->local_aggregator_size; ++i ) {
+            for ( i = 0; i < fd->local_aggregator_size; ++i ) { // 遍历每个本地聚合器
                 /* Local aggregate messages are unpacked previously */
-                if (fd->local_aggregators[i] != myrank){
+                if (fd->local_aggregators[i] != myrank){    // 当前进程不是遍历的本地聚合器则进入
                     /* Directly unpack from current buffer. The buffer may not be ordered.
                      * local_aggregator_domain record which processes a local aggregator represents for.
                      * The contig_buf is in the order of local aggregators (contiguously with respect to its domain), so we just unpack them one by one carefully. */
-                    for ( k = 0; k < fd->local_aggregator_domain_size[i]; ++k ) {
+                    for ( k = 0; k < fd->local_aggregator_domain_size[i]; ++k ) {   // 遍历当前本地聚合器的域大小，即本地聚合器负责的进程数量
                         /* Local data has been unpacked at the beginning, nothing should be received from its local aggregator. */
                         if (fd->local_aggregator_domain[i][k] != myrank) {
                             MEMCPY_UNPACK(fd->local_aggregator_domain[i][k], (char *) buf_ptr);

@@ -239,7 +239,7 @@ typedef struct ADIOI_FileD {
     char *other_req_buf;
     char *other_req_mem;
 
-    int *global_aggregators;
+    int *global_aggregators;  // no use?
 
     int nprocs_aggregator;
     int local_aggregator_size;
@@ -252,15 +252,15 @@ typedef struct ADIOI_FileD {
     MPI_Aint *global_recv_size;
     MPI_Aint *local_lens;
     int *local_send_size;
-    int* array_of_blocklengths;
-    MPI_Aint* array_of_displacements;
+    int* array_of_blocklengths;  // 构建派生数据类型
+    MPI_Aint* array_of_displacements;  // 构建派生数据类型
     MPI_Datatype* new_types;
     char* local_buf;
     size_t local_buf_size;
     int *cb_send_size;
     int **local_aggregator_domain;
     int *local_aggregator_domain_size;
-    int global_aggregator_index;
+    int global_aggregator_index; // no use?
 
     /* see file adio/common/onesided_aggregation.c for descriptions of the next 6 members */
     int romio_write_aggmethod;
